@@ -876,6 +876,8 @@
     const BOARD_GAP = 120;
     const BOARD_STEP = BOARD_SIZE + BOARD_GAP;
     const BOARD_COLUMNS = 4;
+    const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+    const PRIMARY_MOD_LABEL = IS_MAC ? "Cmd" : "Ctrl";
 
     const initialGlyphs = [
       ["a-ko", "ㅏ"], ["ya-ko", "ㅑ"], ["eo-ko", "ㅓ"], ["yeo-ko", "ㅕ"],
@@ -1016,6 +1018,7 @@
     });
 
     renderAll();
+    renderShortcutLabels();
 
     function activeGlyph() {
       return state.glyphs.find(glyph => glyph.id === state.activeGlyphId);
@@ -1490,7 +1493,7 @@
         return;
       }
       selectedBoardId = null;
-      if (event && (event.ctrlKey || event.metaKey)) {
+      if (event && isPrimaryShortcut(event)) {
         selectedElementIds = selectedElementIds.filter(item => item !== id);
         selectedElementId = selectedElementIds[selectedElementIds.length - 1] || null;
         selectedAnchorRef = null;
@@ -1517,7 +1520,7 @@
         return;
       }
       selectedBoardId = null;
-      if (event && (event.ctrlKey || event.metaKey)) {
+      if (event && isPrimaryShortcut(event)) {
         selectedGuideIds = selectedGuideIds.filter(item => item !== id);
       } else if (event && event.shiftKey) {
         if (!selectedGuideIds.includes(id)) selectedGuideIds.push(id);
@@ -1664,7 +1667,7 @@
       event.preventDefault();
       event.stopPropagation();
       selectElement(id, event);
-      if (event.ctrlKey || event.metaKey) return;
+      if (isPrimaryShortcut(event)) return;
       pushHistory();
       const point = svgPoint(event);
       drag = {
@@ -1766,7 +1769,7 @@
         start,
         current: start,
         shift: event.shiftKey,
-        ctrl: event.ctrlKey || event.metaKey
+        ctrl: isPrimaryShortcut(event)
       };
       refs.marqueeBox.setAttribute("visibility", "visible");
       refs.editorSvg.setPointerCapture(event.pointerId);
@@ -2851,10 +2854,27 @@
       refs.statusBox.textContent = message;
     }
 
+    function isPrimaryShortcut(event) {
+      return IS_MAC ? event.metaKey : event.ctrlKey;
+    }
+
+    function renderShortcutLabels() {
+      if (!IS_MAC) return;
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(node => {
+        if (node.parentElement && ["SCRIPT", "STYLE"].includes(node.parentElement.tagName)) return;
+        node.nodeValue = node.nodeValue.replace(/\bCtrl\b/g, PRIMARY_MOD_LABEL);
+      });
+      Array.from(document.querySelectorAll("input[placeholder], textarea[placeholder]")).forEach(input => {
+        input.setAttribute("placeholder", input.getAttribute("placeholder").replace(/\bCtrl\b/g, PRIMARY_MOD_LABEL));
+      });
+    }
+
     function handleEditorShortcut(event) {
       const key = event.key.toLowerCase();
-      const isCtrl = event.ctrlKey || event.metaKey;
-      if (!isCtrl) return false;
+      if (!isPrimaryShortcut(event)) return false;
 
       if (key === "z") {
         event.preventDefault();
@@ -2986,7 +3006,7 @@
       }
 
       const amount = Math.max(24, Math.min(160, Math.abs(event.deltaY || 0)));
-      if (event.ctrlKey || event.metaKey) {
+      if (isPrimaryShortcut(event)) {
         state.panX += event.deltaY < 0 ? amount : -amount;
       } else {
         state.panY += event.deltaY < 0 ? amount : -amount;
@@ -3191,7 +3211,7 @@
           event.preventDefault();
           event.stopPropagation();
           selectGuide(guide.id, event);
-          if (event.ctrlKey || event.metaKey) return;
+          if (isPrimaryShortcut(event)) return;
           startGuideMoveDrag(event, guide.id);
         });
         refs.userGuideLayer.appendChild(hitLine);
