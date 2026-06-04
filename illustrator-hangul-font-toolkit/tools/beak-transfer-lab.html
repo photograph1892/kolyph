@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hangul Beak Transfer Lab</title>
+  <style>
+    :root {
+      --bg: #f4f4f1;
+      --panel: #ffffff;
+      --ink: #241a17;
+      --muted: #706b66;
+      --line: #c9c5be;
+      --accent: #0f766e;
+      --accent-2: #b45309;
+      --danger: #b91c1c;
+      --shadow: 0 8px 24px rgba(31, 28, 24, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      font-size: 14px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fcfcfa;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.warn {
+      background: #fff7ed;
+      border-color: #f0c28b;
+      color: #7c2d12;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .paste-targets {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .paste-zone {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px;
+      text-align: left;
+      min-height: 68px;
+    }
+
+    .paste-zone strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .paste-zone span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .paste-zone.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      min-height: calc(100vh - 58px);
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      background: #fcfcfa;
+      padding: 14px;
+      overflow: auto;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px;
+      font: 12px/1.35 Consolas, "Courier New", monospace;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      margin-bottom: 8px;
+      font: inherit;
+      color: var(--muted);
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 72px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px 8px;
+      font: inherit;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+      min-height: 44px;
+      line-height: 1.45;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .viewer {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+
+    .viewer h2 {
+      margin: 0;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      letter-spacing: 0;
+      background: #fbfbf8;
+    }
+
+    .svgbox {
+      position: relative;
+      overflow: auto;
+      background:
+        linear-gradient(45deg, #f1f1ee 25%, transparent 25%),
+        linear-gradient(-45deg, #f1f1ee 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #f1f1ee 75%),
+        linear-gradient(-45deg, transparent 75%, #f1f1ee 75%);
+      background-size: 28px 28px;
+      background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+    }
+
+    .canvas {
+      min-height: 520px;
+      padding: 16px;
+    }
+
+    .canvas svg {
+      width: 100%;
+      height: auto;
+      max-height: 78vh;
+      display: block;
+      background: white;
+      border: 1px solid #d8d4ce;
+    }
+
+    .selectable-path {
+      cursor: crosshair;
+    }
+
+    .selected-path {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .marker {
+      pointer-events: none;
+      fill: var(--accent);
+      stroke: white;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .marker.target {
+      fill: var(--accent-2);
+    }
+
+    .direction {
+      pointer-events: none;
+      stroke: var(--accent);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .direction.target {
+      stroke: var(--accent-2);
+    }
+
+    #beak-transfer-result {
+      cursor: move;
+    }
+
+    #beak-transfer-result [data-beak-transfer="patch"] {
+      pointer-events: visiblePainted;
+    }
+
+    .empty {
+      height: 520px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 920px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .stage {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hangul Beak Transfer Lab</h1>
+    <div class="actions">
+      <button id="renderBtn" class="primary">Render SVGs</button>
+      <button id="makeBtn">Make Transfer</button>
+      <button id="copyBtn">Copy Result SVG</button>
+      <button id="downloadBtn" class="warn">Download Result</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <div class="paste-targets">
+        <button id="sourcePasteZone" class="paste-zone active" type="button">
+          <strong>Paste Source</strong>
+          <span>부리 선택 후 Ctrl+V</span>
+        </button>
+        <button id="targetPasteZone" class="paste-zone" type="button">
+          <strong>Paste Target</strong>
+          <span>대상 모음 Ctrl+V</span>
+        </button>
+      </div>
+
+      <div class="field">
+        <label for="sourceSvg">Source beak SVG</label>
+        <input id="sourceFile" type="file" accept=".svg,image/svg+xml">
+        <textarea id="sourceSvg" spellcheck="false" placeholder="Paste an SVG that contains only the ㅏ beak patch, or click one path after rendering."></textarea>
+        <p class="hint">Illustrator에서 기준 부리만 복사한 뒤 SVG 코드로 붙여넣거나, 부리가 들어 있는 SVG를 넣고 화면에서 패스를 클릭합니다.</p>
+      </div>
+
+      <div class="field">
+        <label for="targetSvg">Target vowel SVG</label>
+        <input id="targetFile" type="file" accept=".svg,image/svg+xml">
+        <textarea id="targetSvg" spellcheck="false" placeholder="Paste target vowel SVG here."></textarea>
+      </div>
+
+      <div class="field">
+        <label>Scale</label>
+        <div class="row">
+          <input id="scaleRange" type="range" min="20" max="220" value="100">
+          <input id="scaleNumber" type="number" min="20" max="220" value="100">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Extra rotation</label>
+        <div class="row">
+          <input id="rotateRange" type="range" min="-180" max="180" value="0">
+          <input id="rotateNumber" type="number" min="-180" max="180" value="0">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Opacity</label>
+        <div class="row">
+          <input id="opacityRange" type="range" min="10" max="100" value="100">
+          <input id="opacityNumber" type="number" min="10" max="100" value="100">
+        </div>
+      </div>
+
+      <p class="hint">
+        클릭 순서: source origin, source direction, target origin, target direction.
+        방향점은 부리가 흘러가는 쪽으로 찍으면 됩니다. Make Transfer 후 대상 위의 부리 패치를 드래그할 수 있고, Shift를 누른 채 드래그하면 수평/수직으로 고정됩니다.
+      </p>
+      <div id="status" class="status">Ready.</div>
+    </aside>
+
+    <section class="stage">
+      <div class="viewer">
+        <h2>Source</h2>
+        <div id="sourceBox" class="svgbox"><div class="empty">Paste source SVG, then Render SVGs.</div></div>
+      </div>
+      <div class="viewer">
+        <h2>Target / Result</h2>
+        <div id="targetBox" class="svgbox"><div class="empty">Paste target SVG, then Render SVGs.</div></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      sourceDoc: null,
+      targetDoc: null,
+      sourceSvg: null,
+      targetSvg: null,
+      selectedSourcePath: null,
+      sourceOrigin: null,
+      sourceDirection: null,
+      targetOrigin: null,
+      targetDirection: null,
+      resultSvgText: "",
+      activePatchGroup: null,
+      drag: null
+    };
+
+    const els = {
+      sourceSvg: document.getElementById("sourceSvg"),
+      targetSvg: document.getElementById("targetSvg"),
+      sourceFile: document.getElementById("sourceFile"),
+      targetFile: document.getElementById("targetFile"),
+      sourcePasteZone: document.getElementById("sourcePasteZone"),
+      targetPasteZone: document.getElementById("targetPasteZone"),
+      sourceBox: document.getElementById("sourceBox"),
+      targetBox: document.getElementById("targetBox"),
+      status: document.getElementById("status"),
+      renderBtn: document.getElementById("renderBtn"),
+      makeBtn: document.getElementById("makeBtn"),
+      copyBtn: document.getElementById("copyBtn"),
+      downloadBtn: document.getElementById("downloadBtn"),
+      scaleRange: document.getElementById("scaleRange"),
+      scaleNumber: document.getElementById("scaleNumber"),
+      rotateRange: document.getElementById("rotateRange"),
+      rotateNumber: document.getElementById("rotateNumber"),
+      opacityRange: document.getElementById("opacityRange"),
+      opacityNumber: document.getElementById("opacityNumber")
+    };
+
+    let activePasteTarget = "source";
+
+    bindNumberPair(els.scaleRange, els.scaleNumber);
+    bindNumberPair(els.rotateRange, els.rotateNumber);
+    bindNumberPair(els.opacityRange, els.opacityNumber);
+
+    els.renderBtn.addEventListener("click", renderSvgs);
+    els.makeBtn.addEventListener("click", makeTransfer);
+    els.copyBtn.addEventListener("click", copyResult);
+    els.downloadBtn.addEventListener("click", downloadResult);
+    els.sourceFile.addEventListener("change", event => loadSvgFile(event, els.sourceSvg));
+    els.targetFile.addEventListener("change", event => loadSvgFile(event, els.targetSvg));
+    els.sourcePasteZone.addEventListener("click", () => setPasteTarget("source"));
+    els.targetPasteZone.addEventListener("click", () => setPasteTarget("target"));
+    els.sourceSvg.addEventListener("focus", () => setPasteTarget("source"));
+    els.targetSvg.addEventListener("focus", () => setPasteTarget("target"));
+    document.addEventListener("paste", handlePaste);
+    document.addEventListener("keydown", handleNudge);
+
+    function bindNumberPair(range, number) {
+      range.addEventListener("input", () => {
+        number.value = range.value;
+      });
+      number.addEventListener("input", () => {
+        range.value = number.value;
+      });
+    }
+
+    async function loadSvgFile(event, textarea) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      textarea.value = await file.text();
+      setStatus(`${file.name} loaded. Click Render SVGs.`);
+    }
+
+    function setPasteTarget(target) {
+      activePasteTarget = target;
+      els.sourcePasteZone.classList.toggle("active", target === "source");
+      els.targetPasteZone.classList.toggle("active", target === "target");
+      setStatus(target === "source" ? "Paste target set to Source." : "Paste target set to Target.");
+    }
+
+    async function handlePaste(event) {
+      const targetElement = event.target;
+      const isTextarea = targetElement === els.sourceSvg || targetElement === els.targetSvg;
+      const clipboard = event.clipboardData;
+      if (!clipboard) return;
+
+      const svgText = await getSvgFromClipboard(clipboard);
+      if (!svgText) {
+        if (!isTextarea) {
+          setStatus("Clipboard does not contain SVG markup. In Illustrator, copy a vector object rather than a bitmap preview.");
+        }
+        return;
+      }
+
+      event.preventDefault();
+      const textarea = activePasteTarget === "source" ? els.sourceSvg : els.targetSvg;
+      textarea.value = svgText;
+      setStatus(`Pasted SVG into ${activePasteTarget === "source" ? "Source" : "Target"}. Click Render SVGs.`);
+    }
+
+    async function getSvgFromClipboard(clipboard) {
+      for (const item of clipboard.items) {
+        if (item.type === "image/svg+xml") {
+          const file = item.getAsFile();
+          if (file) return await file.text();
+        }
+      }
+
+      const plain = clipboard.getData("text/plain");
+      const html = clipboard.getData("text/html");
+      const svgFromPlain = extractSvg(plain);
+      if (svgFromPlain) return svgFromPlain;
+      const svgFromHtml = extractSvg(html);
+      if (svgFromHtml) return svgFromHtml;
+
+      for (const item of clipboard.items) {
+        if (item.kind === "file") {
+          const file = item.getAsFile();
+          if (file && (file.type === "image/svg+xml" || /\.svg$/i.test(file.name))) {
+            return await file.text();
+          }
+        }
+      }
+
+      return "";
+    }
+
+    function extractSvg(text) {
+      if (!text) return "";
+      const direct = text.match(/<svg[\s\S]*<\/svg>/i);
+      if (direct) return direct[0];
+
+      const doc = new DOMParser().parseFromString(text, "text/html");
+      const svg = doc.querySelector("svg");
+      if (svg) return new XMLSerializer().serializeToString(svg);
+
+      const decoded = decodeEntities(text);
+      const decodedDirect = decoded.match(/<svg[\s\S]*<\/svg>/i);
+      if (decodedDirect) return decodedDirect[0];
+      return "";
+    }
+
+    function decodeEntities(text) {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = text;
+      return textarea.value;
+    }
+
+    function renderSvgs() {
+      resetPoints();
+      state.selectedSourcePath = null;
+      state.sourceDoc = parseSvg(els.sourceSvg.value);
+      state.targetDoc = parseSvg(els.targetSvg.value);
+
+      if (!state.sourceDoc || !state.targetDoc) {
+        setStatus("Both fields need valid SVG markup.");
+        return;
+      }
+
+      state.sourceSvg = state.sourceDoc.documentElement;
+      state.targetSvg = state.targetDoc.documentElement;
+      normalizeSvg(state.sourceSvg);
+      normalizeSvg(state.targetSvg);
+
+      els.sourceBox.innerHTML = "";
+      els.targetBox.innerHTML = "";
+      els.sourceBox.appendChild(wrapCanvas(state.sourceSvg));
+      els.targetBox.appendChild(wrapCanvas(state.targetSvg));
+
+      markSourcePaths(state.sourceSvg);
+      state.sourceSvg.addEventListener("click", onSourceClick);
+      state.targetSvg.addEventListener("click", onTargetClick);
+      setStatus("Click a source path, then click source origin/direction and target origin/direction.");
+    }
+
+    function parseSvg(text) {
+      const trimmed = text.trim();
+      if (!trimmed) return null;
+      const doc = new DOMParser().parseFromString(trimmed, "image/svg+xml");
+      if (doc.querySelector("parsererror")) return null;
+      if (!doc.documentElement || doc.documentElement.tagName.toLowerCase() !== "svg") return null;
+      return doc;
+    }
+
+    function normalizeSvg(svg) {
+      if (!svg.getAttribute("viewBox")) {
+        const width = parseFloat(svg.getAttribute("width")) || 1000;
+        const height = parseFloat(svg.getAttribute("height")) || 1000;
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      }
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+    }
+
+    function wrapCanvas(svg) {
+      const div = document.createElement("div");
+      div.className = "canvas";
+      div.appendChild(svg);
+      return div;
+    }
+
+    function markSourcePaths(svg) {
+      svg.querySelectorAll("path").forEach(path => {
+        path.classList.add("selectable-path");
+        path.addEventListener("click", event => {
+          event.stopPropagation();
+          if (state.selectedSourcePath) {
+            state.selectedSourcePath.classList.remove("selected-path");
+          }
+          state.selectedSourcePath = path;
+          path.classList.add("selected-path");
+          setStatus("Source path selected. Now click source origin and source direction.");
+        });
+      });
+    }
+
+    function onSourceClick(event) {
+      if (!state.sourceSvg) return;
+      const point = svgPoint(state.sourceSvg, event);
+      if (!state.sourceOrigin) {
+        state.sourceOrigin = point;
+        drawMarker(state.sourceSvg, point, "source-origin", false);
+        setStatus("Source origin set. Click source direction.");
+      } else if (!state.sourceDirection) {
+        state.sourceDirection = point;
+        drawMarker(state.sourceSvg, point, "source-direction", false);
+        drawLine(state.sourceSvg, state.sourceOrigin, state.sourceDirection, "source-line", false);
+        setStatus("Source direction set. Click target origin.");
+      }
+    }
+
+    function onTargetClick(event) {
+      if (!state.targetSvg) return;
+      const point = svgPoint(state.targetSvg, event);
+      if (!state.targetOrigin) {
+        state.targetOrigin = point;
+        drawMarker(state.targetSvg, point, "target-origin", true);
+        setStatus("Target origin set. Click target direction.");
+      } else if (!state.targetDirection) {
+        state.targetDirection = point;
+        drawMarker(state.targetSvg, point, "target-direction", true);
+        drawLine(state.targetSvg, state.targetOrigin, state.targetDirection, "target-line", true);
+        setStatus("Target direction set. Click Make Transfer.");
+      }
+    }
+
+    function svgPoint(svg, event) {
+      const pt = svg.createSVGPoint();
+      pt.x = event.clientX;
+      pt.y = event.clientY;
+      const transformed = pt.matrixTransform(svg.getScreenCTM().inverse());
+      return { x: transformed.x, y: transformed.y };
+    }
+
+    function drawMarker(svg, point, id, target) {
+      removeById(svg, id);
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("id", id);
+      circle.setAttribute("class", target ? "marker target" : "marker");
+      circle.setAttribute("cx", point.x);
+      circle.setAttribute("cy", point.y);
+      circle.setAttribute("r", 8);
+      svg.appendChild(circle);
+    }
+
+    function drawLine(svg, a, b, id, target) {
+      removeById(svg, id);
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("id", id);
+      line.setAttribute("class", target ? "direction target" : "direction");
+      line.setAttribute("x1", a.x);
+      line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x);
+      line.setAttribute("y2", b.y);
+      svg.appendChild(line);
+    }
+
+    function removeById(svg, id) {
+      const old = svg.querySelector(`#${CSS.escape(id)}`);
+      if (old) old.remove();
+    }
+
+    function makeTransfer() {
+      if (!state.targetSvg || !state.sourceSvg) {
+        setStatus("Render SVGs first.");
+        return;
+      }
+      if (!state.sourceOrigin || !state.sourceDirection || !state.targetOrigin || !state.targetDirection) {
+        setStatus("Set source origin/direction and target origin/direction first.");
+        return;
+      }
+
+      const patch = state.selectedSourcePath
+        ? state.selectedSourcePath.cloneNode(true)
+        : firstDrawablePath(state.sourceSvg);
+
+      if (!patch) {
+        setStatus("No source path found.");
+        return;
+      }
+
+      cleanupResult(state.targetSvg);
+
+      const sourceAngle = angle(state.sourceOrigin, state.sourceDirection);
+      const targetAngle = angle(state.targetOrigin, state.targetDirection);
+      const userScale = Number(els.scaleNumber.value) / 100;
+      const userRotate = Number(els.rotateNumber.value);
+      const opacity = Number(els.opacityNumber.value) / 100;
+      const rotation = targetAngle - sourceAngle + userRotate;
+
+      patch.removeAttribute("id");
+      patch.classList.remove("selectable-path", "selected-path");
+      patch.setAttribute("data-beak-transfer", "patch");
+      patch.setAttribute("opacity", opacity.toFixed(2));
+
+      const transform = [
+        `translate(${state.targetOrigin.x} ${state.targetOrigin.y})`,
+        `rotate(${rotation})`,
+        `scale(${userScale})`,
+        `translate(${-state.sourceOrigin.x} ${-state.sourceOrigin.y})`
+      ].join(" ");
+
+      const existing = patch.getAttribute("transform");
+      patch.setAttribute("transform", existing ? `${transform} ${existing}` : transform);
+
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("id", "beak-transfer-result");
+      group.setAttribute("data-dx", "0");
+      group.setAttribute("data-dy", "0");
+      group.appendChild(patch);
+      state.targetSvg.appendChild(group);
+      state.activePatchGroup = group;
+      enablePatchDrag(group);
+
+      state.resultSvgText = serializeCleanSvg(state.targetSvg);
+      setStatus("Transfer made. Drag the floating beak patch into place. Hold Shift while dragging to lock horizontal or vertical movement.");
+    }
+
+    function firstDrawablePath(svg) {
+      return Array.from(svg.querySelectorAll("path")).find(path => path.getAttribute("d"));
+    }
+
+    function cleanupResult(svg) {
+      svg.querySelectorAll("#beak-transfer-result").forEach(node => node.remove());
+      state.activePatchGroup = null;
+      state.drag = null;
+    }
+
+    function angle(a, b) {
+      return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    }
+
+    function serializeCleanSvg(svg) {
+      const clone = svg.cloneNode(true);
+      clone.querySelectorAll(".marker, .direction").forEach(node => node.remove());
+      clone.querySelectorAll(".selectable-path, .selected-path").forEach(node => {
+        node.classList.remove("selectable-path", "selected-path");
+      });
+      return new XMLSerializer().serializeToString(clone);
+    }
+
+    function enablePatchDrag(group) {
+      group.addEventListener("pointerdown", event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const svg = group.ownerSVGElement;
+        const start = svgPointFromClient(svg, event.clientX, event.clientY);
+        state.drag = {
+          group,
+          start,
+          baseDx: Number(group.getAttribute("data-dx")) || 0,
+          baseDy: Number(group.getAttribute("data-dy")) || 0
+        };
+        svg.setPointerCapture(event.pointerId);
+      });
+
+      const svg = group.ownerSVGElement;
+      svg.addEventListener("pointermove", event => {
+        if (!state.drag || state.drag.group !== group) return;
+        event.preventDefault();
+        const current = svgPointFromClient(svg, event.clientX, event.clientY);
+        let dx = current.x - state.drag.start.x;
+        let dy = current.y - state.drag.start.y;
+
+        if (event.shiftKey) {
+          if (Math.abs(dx) >= Math.abs(dy)) {
+            dy = 0;
+          } else {
+            dx = 0;
+          }
+        }
+
+        setPatchTranslation(group, state.drag.baseDx + dx, state.drag.baseDy + dy);
+        state.resultSvgText = serializeCleanSvg(state.targetSvg);
+      });
+
+      svg.addEventListener("pointerup", event => {
+        if (!state.drag || state.drag.group !== group) return;
+        event.preventDefault();
+        state.drag = null;
+        setStatus("Patch placed. Copy/download the result SVG, then use Illustrator Pathfinder Unite or Shape Builder.");
+      });
+
+      svg.addEventListener("pointercancel", () => {
+        state.drag = null;
+      });
+    }
+
+    function setPatchTranslation(group, dx, dy) {
+      group.setAttribute("data-dx", String(dx));
+      group.setAttribute("data-dy", String(dy));
+      group.setAttribute("transform", `translate(${dx} ${dy})`);
+    }
+
+    function handleNudge(event) {
+      if (!state.activePatchGroup) return;
+      const keys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
+      if (!keys.includes(event.key)) return;
+
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      let dx = Number(state.activePatchGroup.getAttribute("data-dx")) || 0;
+      let dy = Number(state.activePatchGroup.getAttribute("data-dy")) || 0;
+
+      if (event.key === "ArrowLeft") dx -= step;
+      if (event.key === "ArrowRight") dx += step;
+      if (event.key === "ArrowUp") dy -= step;
+      if (event.key === "ArrowDown") dy += step;
+
+      setPatchTranslation(state.activePatchGroup, dx, dy);
+      state.resultSvgText = serializeCleanSvg(state.targetSvg);
+      setStatus("Patch nudged. Arrow keys move 1 unit; Shift+Arrow moves 10 units.");
+    }
+
+    function svgPointFromClient(svg, clientX, clientY) {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      return pt.matrixTransform(svg.getScreenCTM().inverse());
+    }
+
+    async function copyResult() {
+      const text = state.resultSvgText || (state.targetSvg ? serializeCleanSvg(state.targetSvg) : "");
+      if (!text) {
+        setStatus("No result SVG to copy.");
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      setStatus("Result SVG copied.");
+    }
+
+    function downloadResult() {
+      const text = state.resultSvgText || (state.targetSvg ? serializeCleanSvg(state.targetSvg) : "");
+      if (!text) {
+        setStatus("No result SVG to download.");
+        return;
+      }
+      const blob = new Blob([text], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "beak-transfer-result.svg";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setStatus("Result SVG downloaded.");
+    }
+
+    function resetPoints() {
+      state.sourceOrigin = null;
+      state.sourceDirection = null;
+      state.targetOrigin = null;
+      state.targetDirection = null;
+      state.resultSvgText = "";
+    }
+
+    function setStatus(message) {
+      els.status.textContent = message;
+    }
+  </script>
+</body>
+</html>

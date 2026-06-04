@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <title>Hangul Glyph Grid Template</title>
+  <rect x="0" y="0" width="1000" height="1000" fill="white"/>
+  <rect x="0.5" y="0.5" width="999" height="999" fill="none" stroke="#2d2d2d" stroke-width="1"/>
+  <rect x="80.5" y="80.5" width="839" height="839" fill="none" stroke="#1e78d2" stroke-width="1" stroke-dasharray="10 10"/>
+  <line x1="500" y1="0" x2="500" y2="1000" stroke="#999999" stroke-width="1" stroke-dasharray="8 8"/>
+  <line x1="0" y1="500" x2="1000" y2="500" stroke="#999999" stroke-width="1" stroke-dasharray="8 8"/>
+  <line x1="0" y1="880" x2="1000" y2="880" stroke="#dc4646" stroke-width="1"/>
+  <line x1="0" y1="864" x2="1000" y2="864" stroke="#eb9146" stroke-width="1" stroke-dasharray="6 8"/>
+  <line x1="0" y1="16" x2="1000" y2="16" stroke="#eb9146" stroke-width="1" stroke-dasharray="6 8"/>
+  <line x1="0" y1="984" x2="1000" y2="984" stroke="#eb9146" stroke-width="1" stroke-dasharray="6 8"/>
+  <text x="16" y="32" font-family="Arial, sans-serif" font-size="18" fill="#2d2d2d">em 1000</text>
+  <text x="16" y="872" font-family="Arial, sans-serif" font-size="18" fill="#dc4646">baseline</text>
+</svg>

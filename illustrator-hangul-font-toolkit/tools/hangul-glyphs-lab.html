@@ -1,0 +1,3396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>한글 글리프 랩</title>
+  <style>
+    :root {
+      --bg: #eeeeeb;
+      --panel: #fbfbf8;
+      --panel-2: #ffffff;
+      --ink: #211a17;
+      --muted: #716b64;
+      --line: #c9c4bb;
+      --soft: #e7e3db;
+      --accent: #0f766e;
+      --accent-2: #a15c18;
+      --danger: #a82a2a;
+      --guide: #5f8ec7;
+      --baseline: #d5534a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.35 Arial, "Noto Sans KR", sans-serif;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--ink);
+      padding: 7px 9px;
+      cursor: pointer;
+      min-height: 34px;
+    }
+
+    button:hover { border-color: #9e978e; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    button.danger { color: var(--danger); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 268px minmax(480px, 1fr) 300px;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+    }
+
+    header {
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    aside, .inspector {
+      min-height: 0;
+      overflow: auto;
+      background: var(--panel);
+    }
+
+    aside {
+      border-right: 1px solid var(--line);
+      padding: 10px;
+    }
+
+    .inspector {
+      border-left: 1px solid var(--line);
+      padding: 10px;
+    }
+
+    .section {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--soft);
+    }
+
+    .section:first-child { padding-top: 0; }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .glyph-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .glyph-cell {
+      display: grid;
+      grid-template-rows: 54px auto;
+      gap: 4px;
+      min-height: 82px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      text-align: left;
+    }
+
+    .glyph-cell.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, .14);
+    }
+
+    .glyph-thumb {
+      width: 100%;
+      height: 54px;
+      background: white;
+      border: 1px solid #ddd8cf;
+      overflow: hidden;
+    }
+
+    .glyph-thumb svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .glyph-label {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .workspace {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 1fr 120px;
+      background: #d9d7d1;
+    }
+
+    .canvas-shell {
+      min-height: 0;
+      overflow: auto;
+      padding: 18px;
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+
+    .ruler {
+      display: none;
+      position: absolute;
+      z-index: 5;
+      background: #f8f6f0;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 10px;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    body.rulers-on .ruler { display: block; }
+
+    .ruler-x {
+      left: 18px;
+      right: 18px;
+      top: 18px;
+      height: 22px;
+      cursor: ns-resize;
+    }
+
+    .ruler-y {
+      left: 18px;
+      top: 18px;
+      bottom: 18px;
+      width: 22px;
+      cursor: ew-resize;
+      writing-mode: vertical-rl;
+    }
+
+    .ruler-mark {
+      position: absolute;
+      color: #81786d;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .ruler-x .ruler-mark {
+      top: 5px;
+      transform: translateX(-50%);
+    }
+
+    .ruler-y .ruler-mark {
+      left: 5px;
+      transform: translateY(-50%);
+      writing-mode: horizontal-tb;
+    }
+
+    .ruler-mark::before {
+      content: "";
+      position: absolute;
+      background: #81786d;
+    }
+
+    .ruler-x .ruler-mark::before {
+      left: 50%;
+      top: -5px;
+      width: 1px;
+      height: 5px;
+    }
+
+    .ruler-y .ruler-mark::before {
+      left: -5px;
+      top: 50%;
+      width: 5px;
+      height: 1px;
+    }
+
+    .ruler-mark.minor {
+      color: transparent;
+    }
+
+    .context-menu {
+      position: fixed;
+      z-index: 20;
+      display: none;
+      min-width: 150px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      box-shadow: 0 10px 24px rgba(0,0,0,.15);
+      padding: 5px;
+    }
+
+    .context-menu button {
+      width: 100%;
+      border: 0;
+      border-radius: 4px;
+      text-align: left;
+      background: transparent;
+    }
+
+    .context-menu button:hover {
+      background: #f1f5f4;
+    }
+
+    .canvas-frame {
+      width: calc(min(78vh, 760px) * var(--zoom, 1));
+      aspect-ratio: 1 / 1;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      transform: translate(var(--pan-x, 0px), var(--pan-y, 0px));
+      transform-origin: center center;
+    }
+
+    #editorSvg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      user-select: none;
+      touch-action: none;
+      background: transparent;
+    }
+
+    .guide-line {
+      pointer-events: none;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .glyph-item {
+      cursor: move;
+      pointer-events: none;
+    }
+
+    .glyph-item.selected > * {
+      outline: 0;
+    }
+
+    .hit-area {
+      cursor: move;
+      fill: none;
+      stroke: transparent;
+      stroke-width: 42;
+      vector-effect: non-scaling-stroke;
+      pointer-events: stroke;
+    }
+
+    .selection-box {
+      pointer-events: none;
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+      stroke-dasharray: 8 5;
+    }
+
+    .marquee-box {
+      pointer-events: none;
+      fill: rgba(15, 118, 110, .08);
+      stroke: var(--accent);
+      stroke-width: 1.5;
+      vector-effect: non-scaling-stroke;
+      stroke-dasharray: 6 5;
+    }
+
+    .resize-handle {
+      fill: #ffffff;
+      stroke: var(--accent);
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+      cursor: pointer;
+    }
+
+    .anchor-point {
+      fill: #ffffff;
+      stroke: #e11d48;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+      cursor: crosshair;
+    }
+
+    .anchor-point.control {
+      stroke: #a15c18;
+      fill: #fff7ed;
+    }
+
+    .anchor-point.selected {
+      fill: #e11d48;
+      stroke: #ffffff;
+    }
+
+    .anchor-line {
+      pointer-events: none;
+      stroke: #c08497;
+      stroke-width: 1;
+      vector-effect: non-scaling-stroke;
+      stroke-dasharray: 4 4;
+    }
+
+    .bezier-handle-point {
+      fill: #fff7ed;
+      stroke: #a15c18;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+      cursor: grab;
+    }
+
+    .background-glyph {
+      pointer-events: none;
+      fill: #111;
+      opacity: .055;
+      font-size: 760px;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      font-weight: 700;
+      text-anchor: middle;
+      dominant-baseline: central;
+    }
+
+    .path-highlight {
+      pointer-events: none;
+      fill: none;
+      stroke: #e11d48;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .snap-guide {
+      pointer-events: none;
+      stroke: var(--accent-2);
+      stroke-width: 1.6;
+      stroke-dasharray: 10 7;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .user-guide {
+      pointer-events: stroke;
+      stroke: #0f766e;
+      stroke-width: 1.4;
+      stroke-dasharray: 8 5;
+      vector-effect: non-scaling-stroke;
+      cursor: pointer;
+    }
+
+    .user-guide.selected {
+      stroke: #e11d48;
+      stroke-width: 2.2;
+    }
+
+    .user-guide.locked {
+      stroke: #6b7280;
+      stroke-dasharray: 3 6;
+    }
+
+    .user-guide.selected.locked {
+      stroke: #e11d48;
+      stroke-dasharray: 3 6;
+      stroke-width: 2.4;
+    }
+
+    .guide-hit {
+      pointer-events: stroke;
+      stroke: transparent;
+      stroke-width: 18;
+      vector-effect: non-scaling-stroke;
+      cursor: move;
+    }
+
+    .neighbor-board {
+      pointer-events: all;
+      fill: #fff;
+      stroke: #b8b2a8;
+      stroke-width: 2;
+      vector-effect: non-scaling-stroke;
+      opacity: .7;
+      cursor: default;
+    }
+
+    .neighbor-board.active-slot {
+      stroke: #0f766e;
+      stroke-dasharray: 9 7;
+      opacity: .9;
+    }
+
+    .neighbor-board.selected-board {
+      stroke: #e11d48;
+      stroke-width: 3;
+      stroke-dasharray: 12 7;
+      opacity: 1;
+    }
+
+    .neighbor-board.locked-board {
+      stroke: #6b7280;
+      stroke-dasharray: 3 6;
+    }
+
+    .neighbor-board.selected-board.locked-board {
+      stroke: #e11d48;
+      stroke-width: 3;
+      stroke-dasharray: 3 6;
+    }
+
+    .neighbor-label {
+      pointer-events: none;
+      fill: #756f66;
+      opacity: .55;
+      font-size: 44px;
+      font-family: Arial, "Noto Sans KR", sans-serif;
+      text-anchor: middle;
+    }
+
+    .board-preview {
+      pointer-events: none;
+      opacity: .18;
+    }
+
+    .proof {
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+      padding: 10px 12px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+    }
+
+    .proof-line {
+      min-height: 54px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      padding: 8px;
+      font-size: 30px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 88px;
+      align-items: center;
+      gap: 8px;
+      margin: 7px 0;
+    }
+
+    .row.two {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      color: var(--ink);
+      padding: 7px 8px;
+    }
+
+    input[type="range"] { padding: 0; }
+
+    textarea {
+      min-height: 76px;
+      resize: vertical;
+      font: 12px/1.35 Consolas, "Courier New", monospace;
+    }
+
+    textarea.path-data {
+      min-height: 150px;
+      white-space: pre;
+      overflow: auto;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .component-list, .element-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      padding: 7px 8px;
+      color: var(--ink);
+      text-align: left;
+    }
+
+    .list-item.active {
+      border-color: var(--accent);
+      background: #f1fbf8;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .drop {
+      border: 1px dashed #9f968b;
+      border-radius: 8px;
+      background: white;
+      padding: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .drop.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, .14);
+    }
+
+    .status {
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: white;
+      color: var(--muted);
+      padding: 8px;
+      min-height: 38px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      margin: 8px 0;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1100px) {
+      body { overflow: auto; }
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto auto;
+        height: auto;
+        min-height: 100vh;
+      }
+      header, aside, .workspace, .inspector { grid-column: 1; }
+      aside, .inspector { border: 0; border-bottom: 1px solid var(--line); }
+      .workspace { min-height: 720px; }
+      .canvas-frame { width: min(92vw, 680px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>한글 글리프 랩</h1>
+      <div class="toolbar">
+        <button id="pasteBtn" class="primary">벡터 붙여넣기</button>
+        <button id="saveComponentBtn">컴포넌트 저장</button>
+        <button id="insertComponentBtn">컴포넌트 삽입</button>
+        <button id="duplicateBtn">복제</button>
+        <button id="deleteBtn" class="danger">삭제</button>
+        <button id="exportGlyphBtn">SVG 내보내기</button>
+        <button id="exportProjectBtn">프로젝트 JSON</button>
+        <button id="exportFontPackageBtn">폰트 빌드 JSON</button>
+      </div>
+    </header>
+
+    <aside>
+      <div class="section">
+        <div class="section-title">
+          <span>글리프</span>
+          <button id="addGlyphBtn">추가</button>
+        </div>
+        <div id="glyphGrid" class="glyph-grid"></div>
+      </div>
+      <div class="section">
+        <div class="section-title"><span>가져오기</span></div>
+        <div id="pasteDrop" class="drop" tabindex="0">
+          Illustrator에서 SVG로 export한 파일을 여기에 드롭하거나 파일로 불러오세요. Ctrl+V도 시도하지만 Illustrator 클립보드는 SVG가 아닐 수 있습니다.
+        </div>
+        <input id="svgFileInput" type="file" accept=".svg,image/svg+xml" multiple>
+        <textarea id="svgInput" placeholder="또는 SVG 코드를 여기에 붙여넣고 벡터 붙여넣기를 누르세요."></textarea>
+        <div id="statusBox" class="status">준비됨.</div>
+      </div>
+      <div class="section">
+        <div class="section-title"><span>컴포넌트</span></div>
+        <div id="componentList" class="component-list"></div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <div id="canvasShell" class="canvas-shell">
+        <div id="rulerX" class="ruler ruler-x">자</div>
+        <div id="rulerY" class="ruler ruler-y">자</div>
+        <div id="canvasFrame" class="canvas-frame">
+          <svg id="editorSvg" viewBox="-2400 -2400 8000 8000" aria-label="글리프 편집기">
+            <g id="guideLayer">
+              <g id="neighborBoardLayer"></g>
+              <g id="activeBoardGuide">
+                <text id="backgroundGlyphGuide" class="background-glyph" x="500" y="505"></text>
+                <rect x="80" y="80" width="840" height="840" fill="none" stroke="#5f8ec7" stroke-width="1.2" stroke-dasharray="10 8" class="guide-line"></rect>
+                <line x1="500" y1="0" x2="500" y2="1000" stroke="#9a9690" stroke-width="1" stroke-dasharray="8 8" class="guide-line"></line>
+                <line x1="0" y1="500" x2="1000" y2="500" stroke="#9a9690" stroke-width="1" stroke-dasharray="8 8" class="guide-line"></line>
+                <line x1="0" y1="880" x2="1000" y2="880" stroke="#d5534a" stroke-width="1.5" class="guide-line"></line>
+                <line x1="0" y1="16" x2="1000" y2="16" stroke="#a15c18" stroke-width="1" stroke-dasharray="6 8" class="guide-line"></line>
+                <line x1="0" y1="984" x2="1000" y2="984" stroke="#a15c18" stroke-width="1" stroke-dasharray="6 8" class="guide-line"></line>
+              </g>
+            </g>
+            <g id="glyphLayer"></g>
+            <g id="pathOverlayLayer"></g>
+            <g id="userGuideLayer"></g>
+            <g id="snapLayer"></g>
+            <rect id="selectionBox" class="selection-box" x="0" y="0" width="0" height="0" visibility="hidden"></rect>
+            <g id="handleLayer"></g>
+            <g id="anchorLayer"></g>
+            <rect id="marqueeBox" class="marquee-box" x="0" y="0" width="0" height="0" visibility="hidden"></rect>
+          </svg>
+        </div>
+      </div>
+      <section class="proof">
+        <div class="section-title"><span>프루프</span></div>
+        <div id="proofLine" class="proof-line">가 나 다 라 마 바 사 아 자 차 카 타 파 하</div>
+      </section>
+    </main>
+
+    <section class="inspector">
+      <div class="section">
+        <div class="section-title"><span>글리프</span></div>
+        <label for="glyphName">이름</label>
+        <input id="glyphName" value="">
+        <div class="row two">
+          <div>
+            <label for="advanceWidth">폭</label>
+            <input id="advanceWidth" type="number" value="1000">
+          </div>
+          <div>
+            <label for="glyphChar">문자</label>
+            <input id="glyphChar" value="">
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><span>변형</span></div>
+        <div class="row two">
+          <div>
+            <label for="txInput">X</label>
+            <input id="txInput" type="number" value="0">
+          </div>
+          <div>
+            <label for="tyInput">Y</label>
+            <input id="tyInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="row two">
+          <div>
+            <label for="scaleInput">배율</label>
+            <input id="scaleInput" type="number" value="100">
+          </div>
+          <div>
+            <label for="rotateInput">회전</label>
+            <input id="rotateInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="row">
+          <label for="opacityInput">투명도</label>
+          <input id="opacityInput" type="number" value="100" min="5" max="100">
+        </div>
+        <div class="row two">
+          <div>
+            <label for="boundsXInput">바운더리 X</label>
+            <input id="boundsXInput" type="number" value="0">
+          </div>
+          <div>
+            <label for="boundsYInput">바운더리 Y</label>
+            <input id="boundsYInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="row two">
+          <div>
+            <label for="boundsWInput">바운더리 W</label>
+            <input id="boundsWInput" type="number" value="0">
+          </div>
+          <div>
+            <label for="boundsHInput">바운더리 H</label>
+            <input id="boundsHInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="button-row">
+          <button id="applyTransformBtn">적용</button>
+          <button id="applyBoundsBtn">바운더리 적용</button>
+          <button id="centerElementBtn">가운데</button>
+          <button id="fitMarginBtn">마진 맞춤</button>
+          <button id="resetTransformBtn">초기화</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><span>패스 데이터</span></div>
+        <textarea id="pathDataOutput" class="path-data" readonly placeholder="선택한 요소의 path d 데이터가 여기에 표시됩니다."></textarea>
+        <div class="button-row">
+          <button id="copyPathDataBtn">패스 데이터 복사</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><span>베지어</span></div>
+        <div class="row two">
+          <div>
+            <label for="anchorXInput">앵커 X</label>
+            <input id="anchorXInput" type="number" value="0">
+          </div>
+          <div>
+            <label for="anchorYInput">앵커 Y</label>
+            <input id="anchorYInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="row two">
+          <div>
+            <label for="handleInXInput">인 핸들 X</label>
+            <input id="handleInXInput" type="number" value="0">
+          </div>
+          <div>
+            <label for="handleInYInput">인 핸들 Y</label>
+            <input id="handleInYInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="row two">
+          <div>
+            <label for="handleOutXInput">아웃 핸들 X</label>
+            <input id="handleOutXInput" type="number" value="0">
+          </div>
+          <div>
+            <label for="handleOutYInput">아웃 핸들 Y</label>
+            <input id="handleOutYInput" type="number" value="0">
+          </div>
+        </div>
+        <div class="button-row">
+          <button id="applyBezierBtn">베지어 적용</button>
+        </div>
+        <p class="hint">앵커를 클릭하면 해당 앵커와 연결된 cubic 베지어 핸들 값이 표시됩니다.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><span>요소</span></div>
+        <div id="elementList" class="element-list"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><span>폰트 내보내기</span></div>
+        <label for="fontFamilyName">패밀리 이름</label>
+        <input id="fontFamilyName" value="HangulGlyphsLab">
+        <div class="row two">
+          <div>
+            <label for="fontStyleName">스타일</label>
+            <input id="fontStyleName" value="Regular">
+          </div>
+          <div>
+            <label for="fontFormats">형식</label>
+            <select id="fontFormats" multiple size="4">
+              <option value="ttf" selected>TTF</option>
+              <option value="otf">OTF</option>
+              <option value="woff">WOFF</option>
+              <option value="woff2">WOFF2</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint">폰트 빌드 JSON을 저장한 뒤 `tools/build_font.py`로 원하는 형식의 폰트 파일을 생성합니다.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title"><span>메모</span></div>
+        <p class="hint">
+          Shift 드래그는 수평/수직 고정, 방향키는 1 단위 이동, Shift+방향키는 10 단위 이동입니다.
+          부리 패치를 컴포넌트로 저장해두면 여러 모음에 같은 벡터 조각을 반복 삽입할 수 있습니다.
+        </p>
+      </div>
+    </section>
+  </div>
+  <div id="canvasContextMenu" class="context-menu">
+    <button data-position="center">현재 위치</button>
+    <button data-position="top">위에 배치</button>
+    <button data-position="bottom">아래에 배치</button>
+    <button data-position="left">왼쪽에 배치</button>
+    <button data-position="right">오른쪽에 배치</button>
+  </div>
+
+  <script>
+    const NS = "http://www.w3.org/2000/svg";
+    const STORAGE_KEY = "hangul-glyphs-lab-state-v1";
+    const BOARD_SIZE = 1000;
+    const BOARD_GAP = 120;
+    const BOARD_STEP = BOARD_SIZE + BOARD_GAP;
+    const BOARD_COLUMNS = 4;
+
+    const initialGlyphs = [
+      ["a-ko", "ㅏ"], ["ya-ko", "ㅑ"], ["eo-ko", "ㅓ"], ["yeo-ko", "ㅕ"],
+      ["o-ko", "ㅗ"], ["yo-ko", "ㅛ"], ["u-ko", "ㅜ"], ["yu-ko", "ㅠ"],
+      ["eu-ko", "ㅡ"], ["i-ko", "ㅣ"], ["ae-ko", "ㅐ"], ["e-ko", "ㅔ"],
+      ["wa-ko", "ㅘ"], ["weo-ko", "ㅝ"], ["ui-ko", "ㅢ"]
+    ];
+
+    const state = loadState() || {
+      glyphs: initialGlyphs.map(([name, char]) => ({ id: uid(), name, char, width: 1000, elements: [] })),
+      activeGlyphId: null,
+      components: []
+    };
+    if (!state.activeGlyphId && state.glyphs[0]) state.activeGlyphId = state.glyphs[0].id;
+    state.zoom = state.zoom || 1;
+    state.panX = state.panX || 0;
+    state.panY = state.panY || 0;
+    state.rulersOn = state.rulersOn || false;
+    state.userGuides = state.userGuides || [];
+    state.boardPosition = state.boardPosition || "center";
+    state.font = state.font || { familyName: "HangulGlyphsLab", styleName: "Regular", formats: ["ttf"] };
+    normalizeBoardPositions();
+
+    const refs = {
+      glyphGrid: document.getElementById("glyphGrid"),
+      canvasShell: document.getElementById("canvasShell"),
+      canvasFrame: document.getElementById("canvasFrame"),
+      rulerX: document.getElementById("rulerX"),
+      rulerY: document.getElementById("rulerY"),
+      editorSvg: document.getElementById("editorSvg"),
+      backgroundGlyphGuide: document.getElementById("backgroundGlyphGuide"),
+      activeBoardGuide: document.getElementById("activeBoardGuide"),
+      neighborBoardLayer: document.getElementById("neighborBoardLayer"),
+      glyphLayer: document.getElementById("glyphLayer"),
+      pathOverlayLayer: document.getElementById("pathOverlayLayer"),
+      userGuideLayer: document.getElementById("userGuideLayer"),
+      snapLayer: document.getElementById("snapLayer"),
+      selectionBox: document.getElementById("selectionBox"),
+      marqueeBox: document.getElementById("marqueeBox"),
+      handleLayer: document.getElementById("handleLayer"),
+      anchorLayer: document.getElementById("anchorLayer"),
+      pasteDrop: document.getElementById("pasteDrop"),
+      svgFileInput: document.getElementById("svgFileInput"),
+      svgInput: document.getElementById("svgInput"),
+      statusBox: document.getElementById("statusBox"),
+      componentList: document.getElementById("componentList"),
+      elementList: document.getElementById("elementList"),
+      glyphName: document.getElementById("glyphName"),
+      advanceWidth: document.getElementById("advanceWidth"),
+      glyphChar: document.getElementById("glyphChar"),
+      proofLine: document.getElementById("proofLine"),
+      txInput: document.getElementById("txInput"),
+      tyInput: document.getElementById("tyInput"),
+      scaleInput: document.getElementById("scaleInput"),
+      rotateInput: document.getElementById("rotateInput"),
+      opacityInput: document.getElementById("opacityInput"),
+      boundsXInput: document.getElementById("boundsXInput"),
+      boundsYInput: document.getElementById("boundsYInput"),
+      boundsWInput: document.getElementById("boundsWInput"),
+      boundsHInput: document.getElementById("boundsHInput"),
+      pathDataOutput: document.getElementById("pathDataOutput"),
+      anchorXInput: document.getElementById("anchorXInput"),
+      anchorYInput: document.getElementById("anchorYInput"),
+      handleInXInput: document.getElementById("handleInXInput"),
+      handleInYInput: document.getElementById("handleInYInput"),
+      handleOutXInput: document.getElementById("handleOutXInput"),
+      handleOutYInput: document.getElementById("handleOutYInput"),
+      fontFamilyName: document.getElementById("fontFamilyName"),
+      fontStyleName: document.getElementById("fontStyleName"),
+      fontFormats: document.getElementById("fontFormats"),
+      canvasContextMenu: document.getElementById("canvasContextMenu")
+    };
+
+    let selectedElementId = null;
+    let selectedElementIds = [];
+    let selectedGuideIds = [];
+    let selectedBoardId = null;
+    let selectedComponentId = null;
+    let selectedAnchorRef = null;
+    let drag = null;
+    let resizeDrag = null;
+    let anchorDrag = null;
+    let bezierHandleDrag = null;
+    let marqueeDrag = null;
+    let guideDrag = null;
+    let guideMoveDrag = null;
+    let boardDrag = null;
+    let undoStack = [];
+    let redoStack = [];
+    let historySuspended = false;
+
+    document.getElementById("addGlyphBtn").addEventListener("click", addGlyph);
+    document.getElementById("pasteBtn").addEventListener("click", pasteFromTextarea);
+    document.getElementById("saveComponentBtn").addEventListener("click", saveSelectedAsComponent);
+    document.getElementById("insertComponentBtn").addEventListener("click", insertSelectedComponent);
+    document.getElementById("duplicateBtn").addEventListener("click", duplicateSelected);
+    document.getElementById("deleteBtn").addEventListener("click", deleteSelected);
+    document.getElementById("exportGlyphBtn").addEventListener("click", exportCurrentGlyph);
+    document.getElementById("exportProjectBtn").addEventListener("click", exportProject);
+    document.getElementById("exportFontPackageBtn").addEventListener("click", exportFontPackage);
+    document.getElementById("applyTransformBtn").addEventListener("click", applyInspectorTransform);
+    document.getElementById("applyBoundsBtn").addEventListener("click", applyInspectorBounds);
+    document.getElementById("centerElementBtn").addEventListener("click", centerSelectedElement);
+    document.getElementById("fitMarginBtn").addEventListener("click", fitSelectedToMargin);
+    document.getElementById("resetTransformBtn").addEventListener("click", resetSelectedTransform);
+    document.getElementById("copyPathDataBtn").addEventListener("click", copyPathData);
+    document.getElementById("applyBezierBtn").addEventListener("click", applyBezierValues);
+
+    refs.glyphName.addEventListener("input", updateGlyphMeta);
+    refs.advanceWidth.addEventListener("input", updateGlyphMeta);
+    refs.glyphChar.addEventListener("input", updateGlyphMeta);
+    refs.fontFamilyName.addEventListener("input", updateFontMeta);
+    refs.fontStyleName.addEventListener("input", updateFontMeta);
+    refs.fontFormats.addEventListener("change", updateFontMeta);
+    document.addEventListener("paste", handleClipboardPaste);
+    document.addEventListener("keydown", handleKeydown);
+    refs.svgFileInput.addEventListener("change", handleSvgFiles);
+    refs.pasteDrop.addEventListener("dragover", handleDragOver);
+    refs.pasteDrop.addEventListener("dragleave", handleDragLeave);
+    refs.pasteDrop.addEventListener("drop", handleDrop);
+    refs.canvasShell.addEventListener("wheel", handleWheelPan, { passive: false });
+    refs.canvasShell.addEventListener("pointerdown", event => {
+      if (event.target === refs.canvasShell || event.target === refs.canvasFrame) clearSelection();
+    });
+    refs.canvasShell.addEventListener("contextmenu", openCanvasContextMenu);
+    refs.rulerX.addEventListener("pointerdown", event => startGuideDrag(event, "x"));
+    refs.rulerY.addEventListener("pointerdown", event => startGuideDrag(event, "y"));
+    refs.canvasContextMenu.addEventListener("click", handleCanvasContextMenu);
+    document.addEventListener("click", () => hideCanvasContextMenu());
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    refs.editorSvg.addEventListener("pointermove", onPointerMove);
+    refs.editorSvg.addEventListener("pointerup", endDrag);
+    refs.editorSvg.addEventListener("pointercancel", endDrag);
+    refs.editorSvg.addEventListener("pointerdown", event => {
+      if (event.target === refs.editorSvg || event.target.id === "guideLayer" || event.target.closest("#guideLayer")) {
+        startMarqueeOrClear(event);
+      }
+    });
+
+    renderAll();
+
+    function activeGlyph() {
+      return state.glyphs.find(glyph => glyph.id === state.activeGlyphId);
+    }
+
+    function activeElement() {
+      const glyph = activeGlyph();
+      if (!glyph) return null;
+      return glyph.elements.find(element => element.id === selectedElementId);
+    }
+
+    function renderAll() {
+      renderGlyphGrid();
+      renderEditor();
+      renderInspector();
+      renderComponents();
+      renderElements();
+      renderProof();
+      renderNeighborBoards();
+      renderUserGuides();
+      renderRulers();
+      applyZoom();
+      saveState();
+    }
+
+    function renderGlyphGrid() {
+      refs.glyphGrid.innerHTML = "";
+      state.glyphs.forEach(glyph => {
+        const button = document.createElement("button");
+        button.className = "glyph-cell" + (glyph.id === state.activeGlyphId ? " active" : "");
+        button.type = "button";
+        button.addEventListener("click", () => {
+          state.activeGlyphId = glyph.id;
+          selectedElementId = null;
+          selectedElementIds = [];
+          selectedBoardId = glyph.id;
+          selectedAnchorRef = null;
+          renderAll();
+        });
+
+        const thumb = document.createElement("div");
+        thumb.className = "glyph-thumb";
+        thumb.innerHTML = makeGlyphSvg(glyph, true);
+
+        const label = document.createElement("div");
+        label.className = "glyph-label";
+        label.textContent = `${glyph.char || ""} ${glyph.name}`;
+
+        button.append(thumb, label);
+        refs.glyphGrid.appendChild(button);
+      });
+    }
+
+    function renderEditor() {
+      refs.glyphLayer.innerHTML = "";
+      refs.pathOverlayLayer.innerHTML = "";
+      refs.handleLayer.innerHTML = "";
+      refs.anchorLayer.innerHTML = "";
+      const glyph = activeGlyph();
+      selectedElementIds = glyph ? selectedElementIds.filter(id => glyph.elements.some(item => item.id === id)) : [];
+      selectedElementId = selectedElementIds.includes(selectedElementId) ? selectedElementId : (selectedElementIds[0] || null);
+      refs.backgroundGlyphGuide.textContent = glyph && glyph.char ? glyph.char : "";
+      if (!state.glyphs.length) return;
+
+      state.glyphs.forEach((boardGlyph, glyphIndex) => {
+        const offset = glyphBoardOffset(boardGlyph.id);
+        boardGlyph.elements.forEach(element => {
+          const group = svgFromMarkup(element.markup);
+          group.setAttribute("data-glyph-id", boardGlyph.id);
+          group.setAttribute("data-element-id", element.id);
+          group.setAttribute("class", "glyph-item" + (selectedElementIds.includes(element.id) ? " selected" : ""));
+          applyElementTransform(group, element, offset);
+          refs.glyphLayer.appendChild(group);
+
+          const hitGroup = makeHitAreaGroup(element.markup);
+          hitGroup.setAttribute("data-glyph-id", boardGlyph.id);
+          hitGroup.setAttribute("data-element-id", element.id);
+          applyElementTransform(hitGroup, element, offset);
+          hitGroup.addEventListener("pointerdown", onElementPointerDown);
+          hitGroup.addEventListener("click", event => {
+            event.stopPropagation();
+            state.activeGlyphId = boardGlyph.id;
+            selectElement(element.id, event);
+          });
+          refs.glyphLayer.appendChild(hitGroup);
+        });
+      });
+      updateSelectionBox();
+    }
+
+    function renderInspector() {
+      const glyph = activeGlyph();
+      if (!glyph) return;
+      refs.fontFamilyName.value = state.font.familyName || "HangulGlyphsLab";
+      refs.fontStyleName.value = state.font.styleName || "Regular";
+      Array.from(refs.fontFormats.options).forEach(option => {
+        option.selected = (state.font.formats || ["ttf"]).includes(option.value);
+      });
+      refs.glyphName.value = glyph.name;
+      refs.advanceWidth.value = glyph.width;
+      refs.glyphChar.value = glyph.char || "";
+
+      const element = activeElement();
+      const disabled = !element;
+      [refs.txInput, refs.tyInput, refs.scaleInput, refs.rotateInput, refs.opacityInput, refs.boundsXInput, refs.boundsYInput, refs.boundsWInput, refs.boundsHInput, refs.pathDataOutput].forEach(input => input.disabled = disabled);
+      if (element) {
+        refs.txInput.value = Math.round(element.tx || 0);
+        refs.tyInput.value = Math.round(element.ty || 0);
+        refs.scaleInput.value = Math.round(((element.scaleX || element.scale || 1) + (element.scaleY || element.scale || 1)) * 50);
+        refs.rotateInput.value = Math.round(element.rotate || 0);
+        refs.opacityInput.value = Math.round((element.opacity == null ? 1 : element.opacity) * 100);
+        const bounds = measureSelectedBounds();
+        const board = activeBoardOffset();
+        refs.boundsXInput.value = bounds ? round2(bounds.x - board.x) : 0;
+        refs.boundsYInput.value = bounds ? round2(bounds.y - board.y) : 0;
+        refs.boundsWInput.value = bounds ? round2(bounds.width) : 0;
+        refs.boundsHInput.value = bounds ? round2(bounds.height) : 0;
+        refs.pathDataOutput.value = extractPathData(element.markup).join("\n\n");
+        renderBezierInspector(element);
+      } else {
+        refs.txInput.value = 0;
+        refs.tyInput.value = 0;
+        refs.scaleInput.value = 100;
+        refs.rotateInput.value = 0;
+        refs.opacityInput.value = 100;
+        refs.boundsXInput.value = 0;
+        refs.boundsYInput.value = 0;
+        refs.boundsWInput.value = 0;
+        refs.boundsHInput.value = 0;
+        refs.pathDataOutput.value = "";
+        renderBezierInspector(null);
+      }
+    }
+
+    function renderComponents() {
+      refs.componentList.innerHTML = "";
+      if (state.components.length === 0) {
+        const p = document.createElement("p");
+        p.className = "hint";
+        p.textContent = "선택한 부리나 획을 Save Component로 저장하세요.";
+        refs.componentList.appendChild(p);
+        return;
+      }
+      state.components.forEach(component => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "list-item" + (component.id === selectedComponentId ? " active" : "");
+        button.innerHTML = `<span>${escapeHtml(component.name)}</span><span>${component.count || 1}</span>`;
+        button.addEventListener("click", () => {
+          selectedComponentId = component.id;
+          renderComponents();
+        });
+        refs.componentList.appendChild(button);
+      });
+    }
+
+    function renderElements() {
+      refs.elementList.innerHTML = "";
+      const glyph = activeGlyph();
+      if (!glyph || glyph.elements.length === 0) {
+        const p = document.createElement("p");
+        p.className = "hint";
+        p.textContent = "아직 벡터 요소가 없습니다.";
+        refs.elementList.appendChild(p);
+        return;
+      }
+      glyph.elements.forEach((element, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "list-item" + (selectedElementIds.includes(element.id) ? " active" : "");
+        button.innerHTML = `<span>${index + 1}. ${escapeHtml(element.name)}</span><span>${Math.round((element.opacity == null ? 1 : element.opacity) * 100)}%</span>`;
+        button.addEventListener("click", () => selectElement(element.id));
+        refs.elementList.appendChild(button);
+      });
+    }
+
+    function renderProof() {
+      refs.proofLine.textContent = state.glyphs.map(glyph => glyph.char || glyph.name).join(" ");
+    }
+
+    function addGlyph() {
+      const name = prompt("Glyph name:", "new-ko");
+      if (!name) return;
+      const char = prompt("Display char:", "");
+      pushHistory();
+      const lastGlyph = state.glyphs[state.glyphs.length - 1];
+      const lastOffset = lastGlyph ? glyphBoardOffset(lastGlyph.id) : { x: -BOARD_STEP, y: 0 };
+      const glyph = {
+        id: uid(),
+        name,
+        char: char || "",
+        width: 1000,
+        boardX: lastOffset.x + BOARD_STEP,
+        boardY: lastOffset.y,
+        elements: []
+      };
+      state.glyphs.push(glyph);
+      state.activeGlyphId = glyph.id;
+      state.boardPosition = "right";
+      state.panX = -360;
+      state.panY = 0;
+      selectedElementId = null;
+      selectedElementIds = [];
+      selectedGuideIds = [];
+      selectedBoardId = glyph.id;
+      selectedAnchorRef = null;
+      renderAll();
+    }
+
+    async function handleClipboardPaste(event) {
+      const types = clipboardTypes(event.clipboardData);
+      const svgText = await getSvgFromClipboard(event.clipboardData);
+      if (!svgText) {
+        setStatus("클립보드에서 읽을 수 있는 SVG가 없습니다. 형식: " + (types.join(", ") || "없음") + ". Illustrator가 전용 데이터나 PDF로 복사한 경우 SVG 파일 가져오기를 사용하세요.");
+        return;
+      }
+      event.preventDefault();
+      addSvgToCurrentGlyph(svgText, "pasted");
+      setStatus("클립보드에서 SVG를 붙여넣었습니다. 형식: " + (types.join(", ") || "알 수 없음"));
+    }
+
+    function pasteFromTextarea() {
+      const text = refs.svgInput.value.trim();
+      if (!text) {
+        refs.pasteDrop.focus();
+        return;
+      }
+      addSvgToCurrentGlyph(text, "pasted");
+      refs.svgInput.value = "";
+      setStatus("텍스트 입력창의 SVG를 추가했습니다.");
+    }
+
+    async function handleSvgFiles(event) {
+      const files = Array.from(event.target.files || []);
+      await importSvgFiles(files);
+      refs.svgFileInput.value = "";
+    }
+
+    function handleDragOver(event) {
+      event.preventDefault();
+      refs.pasteDrop.classList.add("active");
+    }
+
+    function handleDragLeave() {
+      refs.pasteDrop.classList.remove("active");
+    }
+
+    async function handleDrop(event) {
+      event.preventDefault();
+      refs.pasteDrop.classList.remove("active");
+      const files = Array.from(event.dataTransfer.files || []);
+      const svgText = event.dataTransfer.getData("text/plain") || event.dataTransfer.getData("text/html");
+      if (files.length > 0) {
+        await importSvgFiles(files);
+        return;
+      }
+      if (svgText) {
+        const extracted = extractSvg(svgText);
+        if (extracted) {
+          addSvgToCurrentGlyph(extracted, "dropped");
+          setStatus("드롭한 SVG 텍스트를 추가했습니다.");
+          return;
+        }
+      }
+      setStatus("드롭한 항목에 SVG 파일이나 SVG 텍스트가 없습니다.");
+    }
+
+    async function importSvgFiles(files) {
+      const svgFiles = files.filter(file => file.type === "image/svg+xml" || /\.svg$/i.test(file.name));
+      if (svgFiles.length === 0) {
+        setStatus("선택된 SVG 파일이 없습니다.");
+        return;
+      }
+      for (const file of svgFiles) {
+        addSvgToCurrentGlyph(await file.text(), file.name.replace(/\.svg$/i, ""));
+      }
+      setStatus("SVG 파일 " + svgFiles.length + "개를 가져왔습니다.");
+    }
+
+    function addSvgToCurrentGlyph(svgText, name) {
+      const glyph = activeGlyph();
+      if (!glyph) return;
+      const markupList = extractDrawableMarkup(svgText);
+      if (markupList.length === 0) {
+        alert("SVG path/group을 찾지 못했습니다.");
+        return;
+      }
+      pushHistory();
+      markupList.forEach((markup, index) => {
+        glyph.elements.push({
+          id: uid(),
+          name: `${name}-${glyph.elements.length + index + 1}`,
+          markup,
+          tx: 0,
+          ty: 0,
+          scale: 1,
+          rotate: 0,
+          opacity: 1
+        });
+      });
+      selectedElementId = glyph.elements[glyph.elements.length - 1].id;
+      selectedElementIds = [selectedElementId];
+      selectedGuideIds = [];
+      selectedBoardId = null;
+      renderAll();
+    }
+
+    function extractDrawableMarkup(svgText) {
+      const svg = parseSvg(svgText);
+      if (!svg) return [];
+      const nodes = Array.from(svg.querySelectorAll("path, polygon, polyline, rect, ellipse, circle"));
+      if (nodes.length === 0) return [];
+
+      const viewBox = parseViewBox(svg);
+      return nodes.map((node, index) => {
+        const g = document.createElementNS(NS, "g");
+        g.setAttribute("data-source-viewbox", viewBox.join(" "));
+        g.setAttribute("data-source-bounds", viewBox.join(" "));
+        g.setAttribute("data-import-mode", "preserve-path-data");
+        g.setAttribute("data-source-tag", node.tagName.toLowerCase());
+        g.setAttribute("data-source-index", String(index + 1));
+
+        const parentTransform = collectParentTransforms(node, svg);
+        if (parentTransform) {
+          g.setAttribute("data-source-transform", parentTransform);
+          var transformGroup = document.createElementNS(NS, "g");
+          transformGroup.setAttribute("transform", parentTransform);
+          transformGroup.appendChild(document.importNode(node, true));
+          g.appendChild(transformGroup);
+        } else {
+          g.appendChild(document.importNode(node, true));
+        }
+
+        return new XMLSerializer().serializeToString(g);
+      });
+    }
+
+    function collectParentTransforms(node, svgRoot) {
+      const transforms = [];
+      let current = node.parentElement;
+      while (current && current !== svgRoot) {
+        if (current.getAttribute && current.getAttribute("transform")) {
+          transforms.unshift(current.getAttribute("transform"));
+        }
+        current = current.parentElement;
+      }
+      return transforms.join(" ");
+    }
+
+    async function getSvgFromClipboard(clipboard) {
+      if (!clipboard) return "";
+      for (const item of clipboard.items) {
+        if (item.type === "image/svg+xml") {
+          const file = item.getAsFile();
+          if (file) return await file.text();
+        }
+      }
+      const plain = clipboard.getData("text/plain");
+      const html = clipboard.getData("text/html");
+      return extractSvg(plain) || extractSvg(html);
+    }
+
+    function clipboardTypes(clipboard) {
+      if (!clipboard) return [];
+      const types = [];
+      if (clipboard.types) {
+        for (const type of clipboard.types) types.push(type);
+      }
+      if (clipboard.items) {
+        for (const item of clipboard.items) {
+          if (!types.includes(item.type)) types.push(item.type || item.kind);
+        }
+      }
+      return types.filter(Boolean);
+    }
+
+    function extractSvg(text) {
+      if (!text) return "";
+      const direct = text.match(/<svg[\s\S]*<\/svg>/i);
+      if (direct) return direct[0];
+      const decoded = decodeEntities(text);
+      const decodedDirect = decoded.match(/<svg[\s\S]*<\/svg>/i);
+      if (decodedDirect) return decodedDirect[0];
+      const doc = new DOMParser().parseFromString(text, "text/html");
+      const svg = doc.querySelector("svg");
+      return svg ? new XMLSerializer().serializeToString(svg) : "";
+    }
+
+    function parseSvg(text) {
+      const svgText = extractSvg(text) || text;
+      const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+      if (doc.querySelector("parsererror")) return null;
+      const root = doc.documentElement;
+      return root && root.tagName.toLowerCase() === "svg" ? root : null;
+    }
+
+    function saveSelectedAsComponent() {
+      const element = activeElement();
+      if (!element) return;
+      const name = prompt("컴포넌트 이름:", element.name.replace(/-\d+$/, ""));
+      if (!name) return;
+      pushHistory();
+      state.components.push({ id: uid(), name, markup: element.markup, count: 1 });
+      selectedComponentId = state.components[state.components.length - 1].id;
+      renderAll();
+    }
+
+    function insertSelectedComponent() {
+      const glyph = activeGlyph();
+      const component = state.components.find(item => item.id === selectedComponentId);
+      if (!glyph || !component) return;
+      pushHistory();
+      const element = {
+        id: uid(),
+        name: component.name,
+        markup: component.markup,
+        tx: 0,
+        ty: 0,
+        scale: 1,
+        rotate: 0,
+        opacity: 1
+      };
+      glyph.elements.push(element);
+      component.count = (component.count || 1) + 1;
+      selectedElementId = element.id;
+      selectedElementIds = [element.id];
+      selectedGuideIds = [];
+      selectedBoardId = null;
+      renderAll();
+    }
+
+    function duplicateSelected() {
+      const glyph = activeGlyph();
+      const element = activeElement();
+      if (!glyph || !element) return;
+      pushHistory();
+      const copy = JSON.parse(JSON.stringify(element));
+      copy.id = uid();
+      copy.name = `${element.name}-copy`;
+      copy.tx += 24;
+      copy.ty += 24;
+      glyph.elements.push(copy);
+      selectedElementId = copy.id;
+      selectedElementIds = [copy.id];
+      selectedGuideIds = [];
+      selectedBoardId = null;
+      renderAll();
+    }
+
+    function deleteSelected() {
+      const glyph = activeGlyph();
+      const hasElementSelection = glyph && selectedElementIds.length > 0;
+      const hasGuideSelection = selectedGuideIds.length > 0;
+      if (!hasElementSelection && !hasGuideSelection) return;
+      pushHistory();
+      if (glyph) {
+        glyph.elements = glyph.elements.filter(element => element.locked || !selectedElementIds.includes(element.id));
+      }
+      state.userGuides = state.userGuides.filter(guide => guide.locked || !selectedGuideIds.includes(guide.id));
+      selectedElementId = null;
+      selectedElementIds = [];
+      selectedGuideIds = [];
+      selectedBoardId = null;
+      selectedAnchorRef = null;
+      renderAll();
+    }
+
+    function selectElement(id, event) {
+      const previous = selectedElementId;
+      if (!id) {
+        clearSelection();
+        return;
+      }
+      selectedBoardId = null;
+      if (event && (event.ctrlKey || event.metaKey)) {
+        selectedElementIds = selectedElementIds.filter(item => item !== id);
+        selectedElementId = selectedElementIds[selectedElementIds.length - 1] || null;
+        selectedAnchorRef = null;
+      } else if (event && event.shiftKey) {
+        if (!selectedElementIds.includes(id)) selectedElementIds.push(id);
+        selectedElementId = id;
+        selectedBoardId = null;
+        if (previous !== id) selectedAnchorRef = null;
+      } else {
+        selectedElementIds = [id];
+        selectedGuideIds = [];
+        selectedBoardId = null;
+        selectedElementId = id;
+        if (previous !== id) selectedAnchorRef = null;
+      }
+      renderEditor();
+      renderInspector();
+      renderElements();
+    }
+
+    function selectGuide(id, event) {
+      if (!id) {
+        clearSelection();
+        return;
+      }
+      selectedBoardId = null;
+      if (event && (event.ctrlKey || event.metaKey)) {
+        selectedGuideIds = selectedGuideIds.filter(item => item !== id);
+      } else if (event && event.shiftKey) {
+        if (!selectedGuideIds.includes(id)) selectedGuideIds.push(id);
+        selectedBoardId = null;
+      } else {
+        selectedElementIds = [];
+        selectedElementId = null;
+        selectedAnchorRef = null;
+        selectedBoardId = null;
+        selectedGuideIds = [id];
+      }
+      renderAll();
+    }
+
+    function selectBoard(id) {
+      if (!id) {
+        clearSelection();
+        return;
+      }
+      state.activeGlyphId = id;
+      selectedElementIds = [];
+      selectedElementId = null;
+      selectedGuideIds = [];
+      selectedBoardId = id;
+      selectedAnchorRef = null;
+      renderAll();
+    }
+
+    function startBoardDrag(event, glyphId) {
+      const glyph = state.glyphs.find(item => item.id === glyphId);
+      if (!glyph) return;
+      if (glyph.boardLocked) {
+        setStatus("잠긴 아트보드는 이동할 수 없습니다.");
+        return;
+      }
+      const point = svgPoint(event);
+      boardDrag = {
+        glyphId,
+        start: point,
+        baseX: glyph.boardX || 0,
+        baseY: glyph.boardY || 0,
+        moved: false
+      };
+      refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onBoardPointerMove(event) {
+      if (!boardDrag) return;
+      const glyph = state.glyphs.find(item => item.id === boardDrag.glyphId);
+      if (!glyph) return;
+      const point = svgPoint(event);
+      const dx = point.x - boardDrag.start.x;
+      const dy = point.y - boardDrag.start.y;
+      if (!boardDrag.moved && Math.hypot(dx, dy) < 3) return;
+      if (!boardDrag.moved) {
+        pushHistory();
+        boardDrag.moved = true;
+      }
+      const snapped = snapBoardPosition(boardDrag.glyphId, boardDrag.baseX + dx, boardDrag.baseY + dy);
+      glyph.boardX = snapped.x;
+      glyph.boardY = snapped.y;
+      renderAll();
+    }
+
+    function snapBoardPosition(glyphId, x, y) {
+      const threshold = 72;
+      const otherBoards = state.glyphs
+        .filter(glyph => glyph.id !== glyphId)
+        .map(glyph => glyphBoardOffset(glyph.id));
+      const xGuides = [];
+      const yGuides = [];
+      otherBoards.forEach(pos => {
+        xGuides.push(pos.x, pos.x - BOARD_STEP, pos.x + BOARD_STEP);
+        yGuides.push(pos.y, pos.y - BOARD_STEP, pos.y + BOARD_STEP);
+      });
+
+      const snapX = nearestSnap(x, xGuides, threshold);
+      const snapY = nearestSnap(y, yGuides, threshold);
+      clearSnapGuides();
+      if (snapX !== null) {
+        x = snapX;
+        drawBoardSnapGuide("x", snapX);
+      }
+      if (snapY !== null) {
+        y = snapY;
+        drawBoardSnapGuide("y", snapY);
+      }
+      return { x, y };
+    }
+
+    function nearestSnap(value, guides, threshold) {
+      let best = null;
+      guides.forEach(guide => {
+        const diff = Math.abs(guide - value);
+        if (diff <= threshold && (!best || diff < best.diff)) {
+          best = { value: guide, diff };
+        }
+      });
+      return best ? best.value : null;
+    }
+
+    function drawBoardSnapGuide(axis, value) {
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("class", "snap-guide");
+      if (axis === "x") {
+        line.setAttribute("x1", value);
+        line.setAttribute("x2", value);
+        line.setAttribute("y1", -2400);
+        line.setAttribute("y2", 5600);
+      } else {
+        line.setAttribute("x1", -2400);
+        line.setAttribute("x2", 5600);
+        line.setAttribute("y1", value);
+        line.setAttribute("y2", value);
+      }
+      refs.snapLayer.appendChild(line);
+    }
+
+    function clearSelection() {
+      selectedElementIds = [];
+      selectedElementId = null;
+      selectedGuideIds = [];
+      selectedBoardId = null;
+      selectedAnchorRef = null;
+      renderEditor();
+      renderInspector();
+      renderElements();
+      renderUserGuides();
+    }
+
+    function onElementPointerDown(event) {
+      const group = event.currentTarget;
+      const glyphId = group.getAttribute("data-glyph-id");
+      const id = group.getAttribute("data-element-id");
+      if (glyphId && glyphId !== state.activeGlyphId) {
+        state.activeGlyphId = glyphId;
+        selectedElementIds = [];
+        selectedGuideIds = [];
+        selectedAnchorRef = null;
+      }
+      const glyph = activeGlyph();
+      const element = glyph ? glyph.elements.find(item => item.id === id) : null;
+      if (!element) return;
+      event.preventDefault();
+      event.stopPropagation();
+      selectElement(id, event);
+      if (event.ctrlKey || event.metaKey) return;
+      pushHistory();
+      const point = svgPoint(event);
+      drag = {
+        id,
+        start: point,
+        baseTx: element.tx || 0,
+        baseTy: element.ty || 0,
+        items: glyph.elements
+          .filter(item => selectedElementIds.includes(item.id))
+          .map(item => ({ id: item.id, baseTx: item.tx || 0, baseTy: item.ty || 0 }))
+      };
+      refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onPointerMove(event) {
+      if (marqueeDrag) {
+        onMarqueePointerMove(event);
+        return;
+      }
+      if (resizeDrag) {
+        onResizePointerMove(event);
+        return;
+      }
+      if (anchorDrag) {
+        onAnchorPointerMove(event);
+        return;
+      }
+      if (bezierHandleDrag) {
+        onBezierHandlePointerMove(event);
+        return;
+      }
+      if (guideMoveDrag) {
+        onGuideMovePointerMove(event);
+        return;
+      }
+      if (boardDrag) {
+        onBoardPointerMove(event);
+        return;
+      }
+      if (!drag) return;
+      const element = activeElement();
+      if (!element || element.id !== drag.id) return;
+      if (element.locked) return;
+      const point = svgPoint(event);
+      let dx = point.x - drag.start.x;
+      let dy = point.y - drag.start.y;
+      if (event.shiftKey) {
+        if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+        else dx = 0;
+      }
+      drag.items.forEach(item => {
+        const target = activeGlyph().elements.find(element => element.id === item.id);
+        if (target) {
+          target.tx = item.baseTx + dx;
+          target.ty = item.baseTy + dy;
+        }
+      });
+      applySnapToElement(element);
+      updateLiveSelectedTransform();
+    }
+
+    function endDrag() {
+      if (marqueeDrag) {
+        endMarqueeDrag();
+        return;
+      }
+      if (resizeDrag || anchorDrag) {
+        resizeDrag = null;
+        anchorDrag = null;
+        renderAll();
+        return;
+      }
+      if (bezierHandleDrag) {
+        bezierHandleDrag = null;
+        renderAll();
+        return;
+      }
+      if (guideMoveDrag) {
+        guideMoveDrag = null;
+        renderAll();
+        return;
+      }
+      if (boardDrag) {
+        boardDrag = null;
+        clearSnapGuides();
+        renderAll();
+        return;
+      }
+      if (!drag) return;
+      drag = null;
+      clearSnapGuides();
+      renderAll();
+    }
+
+    function startMarqueeOrClear(event) {
+      event.preventDefault();
+      const start = svgPoint(event);
+      marqueeDrag = {
+        start,
+        current: start,
+        shift: event.shiftKey,
+        ctrl: event.ctrlKey || event.metaKey
+      };
+      refs.marqueeBox.setAttribute("visibility", "visible");
+      refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onMarqueePointerMove(event) {
+      const point = svgPoint(event);
+      marqueeDrag.current = point;
+      const box = rectFromPoints(marqueeDrag.start, point);
+      refs.marqueeBox.setAttribute("x", box.x);
+      refs.marqueeBox.setAttribute("y", box.y);
+      refs.marqueeBox.setAttribute("width", box.width);
+      refs.marqueeBox.setAttribute("height", box.height);
+    }
+
+    function endMarqueeDrag() {
+      const box = rectFromPoints(marqueeDrag.start, marqueeDrag.current);
+      refs.marqueeBox.setAttribute("visibility", "hidden");
+      const isClick = box.width < 4 && box.height < 4;
+      if (isClick) {
+        selectElement(null);
+      } else {
+        const glyph = activeGlyph();
+        const hits = glyph ? glyph.elements.filter(element => {
+          const bounds = measureElementBounds(element.id);
+          return bounds && rectIntersects(box, bounds);
+        }).map(element => element.id) : [];
+        if (marqueeDrag.ctrl) {
+          selectedElementIds = selectedElementIds.filter(id => !hits.includes(id));
+        } else if (marqueeDrag.shift) {
+          hits.forEach(id => {
+            if (!selectedElementIds.includes(id)) selectedElementIds.push(id);
+          });
+        } else {
+          selectedElementIds = hits;
+        }
+        selectedElementId = selectedElementIds[selectedElementIds.length - 1] || null;
+        selectedAnchorRef = null;
+        renderAll();
+      }
+      marqueeDrag = null;
+    }
+
+    function handleKeydown(event) {
+      if (handleEditorShortcut(event)) return;
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (selectedElementIds.length > 0 || selectedGuideIds.length > 0) {
+          event.preventDefault();
+          deleteSelected();
+        }
+        return;
+      }
+      if (!selectedElementId) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+      const element = activeElement();
+      if (!element) return;
+      if (element.locked) return;
+      event.preventDefault();
+      pushHistory();
+      const step = event.shiftKey ? 10 : 1;
+      if (event.key === "ArrowLeft") element.tx -= step;
+      if (event.key === "ArrowRight") element.tx += step;
+      if (event.key === "ArrowUp") element.ty -= step;
+      if (event.key === "ArrowDown") element.ty += step;
+      renderAll();
+    }
+
+    function updateLiveSelectedTransform() {
+      const element = activeElement();
+      if (!element) return;
+      if (element.locked) return;
+      const group = refs.glyphLayer.querySelector(`[data-element-id="${CSS.escape(element.id)}"]`);
+      if (group) applyElementTransform(group, element, activeBoardOffset());
+      renderInspector();
+      updateSelectionBox();
+      saveState();
+    }
+
+    function applyInspectorTransform() {
+      const element = activeElement();
+      if (!element) return;
+      pushHistory();
+      element.tx = Number(refs.txInput.value) || 0;
+      element.ty = Number(refs.tyInput.value) || 0;
+      const uniformScale = (Number(refs.scaleInput.value) || 100) / 100;
+      element.scale = uniformScale;
+      element.scaleX = uniformScale;
+      element.scaleY = uniformScale;
+      element.rotate = Number(refs.rotateInput.value) || 0;
+      element.opacity = Math.max(0.05, Math.min(1, (Number(refs.opacityInput.value) || 100) / 100));
+      renderAll();
+    }
+
+    function applyInspectorBounds() {
+      const element = activeElement();
+      const local = measureSelectedLocalBounds();
+      if (!element || !local || local.width === 0 || local.height === 0) return;
+      if (element.locked) return;
+      pushHistory();
+
+      const board = activeBoardOffset();
+      const targetX = Number(refs.boundsXInput.value) + board.x;
+      const targetY = Number(refs.boundsYInput.value) + board.y;
+      const targetW = Number(refs.boundsWInput.value);
+      const targetH = Number(refs.boundsHInput.value);
+      if ([targetX, targetY, targetW, targetH].some(value => isNaN(value)) || targetW <= 0 || targetH <= 0) return;
+
+      element.rotate = 0;
+      element.scaleX = targetW / local.width;
+      element.scaleY = targetH / local.height;
+      element.scale = (element.scaleX + element.scaleY) / 2;
+      element.tx = targetX - board.x - local.x * element.scaleX;
+      element.ty = targetY - board.y - local.y * element.scaleY;
+      renderAll();
+    }
+
+    function centerSelectedElement() {
+      const element = activeElement();
+      const bounds = measureSelectedBounds();
+      if (!element || !bounds) return;
+      if (element.locked) return;
+      pushHistory();
+      const board = activeBoardOffset();
+      element.tx += board.x + 500 - (bounds.x + bounds.width / 2);
+      element.ty += board.y + 500 - (bounds.y + bounds.height / 2);
+      renderAll();
+    }
+
+    function fitSelectedToMargin() {
+      const element = activeElement();
+      const bounds = measureSelectedBounds();
+      if (!element || !bounds || bounds.width === 0 || bounds.height === 0) return;
+      if (element.locked) return;
+      pushHistory();
+      const board = activeBoardOffset();
+      const target = { x: board.x + 80, y: board.y + 80, width: 840, height: 840 };
+      const ratio = Math.min(target.width / bounds.width, target.height / bounds.height);
+      element.scaleX = (element.scaleX || element.scale || 1) * ratio;
+      element.scaleY = (element.scaleY || element.scale || 1) * ratio;
+      element.scale = (element.scaleX + element.scaleY) / 2;
+      renderEditor();
+      const resized = measureSelectedBounds();
+      if (resized) {
+        element.tx += target.x + target.width / 2 - (resized.x + resized.width / 2);
+        element.ty += target.y + target.height / 2 - (resized.y + resized.height / 2);
+      }
+      renderAll();
+    }
+
+    function resetSelectedTransform() {
+      const element = activeElement();
+      if (!element) return;
+      if (element.locked) return;
+      pushHistory();
+      element.tx = 0;
+      element.ty = 0;
+      element.scale = 1;
+      element.scaleX = 1;
+      element.scaleY = 1;
+      element.rotate = 0;
+      element.opacity = 1;
+      renderAll();
+    }
+
+    function updateGlyphMeta() {
+      const glyph = activeGlyph();
+      if (!glyph) return;
+      pushHistory();
+      glyph.name = refs.glyphName.value || glyph.name;
+      glyph.width = Number(refs.advanceWidth.value) || 1000;
+      glyph.char = refs.glyphChar.value;
+      renderGlyphGrid();
+      renderProof();
+      saveState();
+    }
+
+    function updateFontMeta() {
+      state.font = {
+        familyName: refs.fontFamilyName.value || "HangulGlyphsLab",
+        styleName: refs.fontStyleName.value || "Regular",
+        formats: Array.from(refs.fontFormats.selectedOptions).map(option => option.value)
+      };
+      if (state.font.formats.length === 0) state.font.formats = ["ttf"];
+      saveState();
+    }
+
+    function applyElementTransform(group, element, offset) {
+      const scaleX = element.scaleX || element.scale || 1;
+      const scaleY = element.scaleY || element.scale || 1;
+      const board = offset || { x: 0, y: 0 };
+      group.setAttribute("transform", `translate(${board.x + (element.tx || 0)} ${board.y + (element.ty || 0)}) scale(${scaleX} ${scaleY}) rotate(${element.rotate || 0})`);
+      group.setAttribute("opacity", element.opacity == null ? 1 : element.opacity);
+    }
+
+    function makeHitAreaGroup(markup) {
+      const group = svgFromMarkup(markup);
+      group.setAttribute("class", "hit-area");
+      group.setAttribute("aria-hidden", "true");
+      drawableNodes(group).forEach(node => {
+        node.removeAttribute("style");
+        node.setAttribute("fill", "transparent");
+        node.setAttribute("stroke", "transparent");
+        node.setAttribute("stroke-width", "42");
+        node.setAttribute("vector-effect", "non-scaling-stroke");
+        node.setAttribute("pointer-events", "all");
+      });
+      return group;
+    }
+
+    function drawableNodes(root) {
+      const selector = "path, polygon, polyline, rect, ellipse, circle, line";
+      const nodes = Array.from(root.querySelectorAll(selector));
+      if (root.matches && root.matches(selector)) nodes.unshift(root);
+      return nodes;
+    }
+
+    function glyphBoardOffset(glyphId) {
+      const index = Math.max(0, state.glyphs.findIndex(glyph => glyph.id === glyphId));
+      const glyph = state.glyphs[index];
+      if (glyph && Number.isFinite(glyph.boardX) && Number.isFinite(glyph.boardY)) {
+        return { x: glyph.boardX, y: glyph.boardY };
+      }
+      return {
+        x: (index % BOARD_COLUMNS) * BOARD_STEP,
+        y: Math.floor(index / BOARD_COLUMNS) * BOARD_STEP
+      };
+    }
+
+    function normalizeBoardPositions() {
+      state.glyphs.forEach((glyph, index) => {
+        if (!Number.isFinite(glyph.boardX)) glyph.boardX = (index % BOARD_COLUMNS) * BOARD_STEP;
+        if (!Number.isFinite(glyph.boardY)) glyph.boardY = Math.floor(index / BOARD_COLUMNS) * BOARD_STEP;
+      });
+    }
+
+    function activeBoardOffset() {
+      return glyphBoardOffset(state.activeGlyphId);
+    }
+
+    function updateSelectionBox() {
+      const element = activeElement();
+      const box = element ? measureSelectedBounds() : null;
+      if (!box) {
+        refs.selectionBox.setAttribute("visibility", "hidden");
+        refs.pathOverlayLayer.innerHTML = "";
+        refs.handleLayer.innerHTML = "";
+        refs.anchorLayer.innerHTML = "";
+        return;
+      }
+      refs.selectionBox.setAttribute("x", box.x);
+      refs.selectionBox.setAttribute("y", box.y);
+      refs.selectionBox.setAttribute("width", box.width);
+      refs.selectionBox.setAttribute("height", box.height);
+      refs.selectionBox.setAttribute("visibility", "visible");
+      updatePathOverlay();
+      updateResizeHandles(box);
+      updateAnchorOverlay();
+    }
+
+    function updatePathOverlay() {
+      refs.pathOverlayLayer.innerHTML = "";
+      const element = activeElement();
+      if (!element) return;
+      const source = svgFromMarkup(element.markup);
+      applyElementTransform(source, element, activeBoardOffset());
+      source.removeAttribute("data-element-id");
+      source.setAttribute("class", "");
+      drawableNodes(source).forEach(node => {
+        node.removeAttribute("style");
+        node.removeAttribute("fill");
+        node.setAttribute("fill", "none");
+        node.setAttribute("stroke", "#e11d48");
+        node.setAttribute("stroke-width", "2");
+        node.setAttribute("vector-effect", "non-scaling-stroke");
+        node.setAttribute("pointer-events", "none");
+      });
+      source.setAttribute("pointer-events", "none");
+      refs.pathOverlayLayer.appendChild(source);
+    }
+
+    function updateResizeHandles(box) {
+      refs.handleLayer.innerHTML = "";
+      const handles = [
+        ["nw", box.x, box.y],
+        ["n", box.x + box.width / 2, box.y],
+        ["ne", box.x + box.width, box.y],
+        ["e", box.x + box.width, box.y + box.height / 2],
+        ["se", box.x + box.width, box.y + box.height],
+        ["s", box.x + box.width / 2, box.y + box.height],
+        ["sw", box.x, box.y + box.height],
+        ["w", box.x, box.y + box.height / 2]
+      ];
+
+      handles.forEach(([name, x, y]) => {
+        const rect = document.createElementNS(NS, "rect");
+        rect.setAttribute("class", "resize-handle");
+        rect.setAttribute("data-handle", name);
+        rect.setAttribute("x", x - 5);
+        rect.setAttribute("y", y - 5);
+        rect.setAttribute("width", 10);
+        rect.setAttribute("height", 10);
+        rect.addEventListener("pointerdown", startResizeDrag);
+        refs.handleLayer.appendChild(rect);
+      });
+    }
+
+    function startResizeDrag(event) {
+      const element = activeElement();
+      const bounds = measureSelectedBounds();
+      if (!element || !bounds) return;
+      event.preventDefault();
+      event.stopPropagation();
+      pushHistory();
+      resizeDrag = {
+        handle: event.currentTarget.getAttribute("data-handle"),
+        start: svgPoint(event),
+        bounds,
+        tx: element.tx || 0,
+        ty: element.ty || 0,
+        scaleX: element.scaleX || element.scale || 1,
+        scaleY: element.scaleY || element.scale || 1
+      };
+      refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onResizePointerMove(event) {
+      const element = activeElement();
+      if (!element || !resizeDrag) return;
+
+      const point = svgPoint(event);
+      const dx = point.x - resizeDrag.start.x;
+      const dy = point.y - resizeDrag.start.y;
+      const b = resizeDrag.bounds;
+      let left = b.x;
+      let right = b.x + b.width;
+      let top = b.y;
+      let bottom = b.y + b.height;
+      const h = resizeDrag.handle;
+
+      if (h.indexOf("w") !== -1) left += dx;
+      if (h.indexOf("e") !== -1) right += dx;
+      if (h.indexOf("n") !== -1) top += dy;
+      if (h.indexOf("s") !== -1) bottom += dy;
+
+      let newW = Math.max(4, right - left);
+      let newH = Math.max(4, bottom - top);
+
+      if (event.shiftKey) {
+        const ratio = b.width / Math.max(b.height, 1);
+        if (newW / Math.max(newH, 1) > ratio) {
+          newW = newH * ratio;
+        } else {
+          newH = newW / ratio;
+        }
+
+        if (h.indexOf("w") !== -1) left = right - newW;
+        else right = left + newW;
+        if (h.indexOf("n") !== -1) top = bottom - newH;
+        else bottom = top + newH;
+      }
+
+      const snapped = snapRectToGuides({ x: left, y: top, width: newW, height: newH });
+      left = snapped.x;
+      top = snapped.y;
+      newW = snapped.width;
+      newH = snapped.height;
+
+      resizeElementToBounds(element, { x: left, y: top, width: newW, height: newH });
+      updateLiveSelectedTransform();
+    }
+
+    function resizeElementToBounds(element, target) {
+      const current = measureSelectedBounds();
+      if (!current || current.width === 0 || current.height === 0) return;
+      const scaleXFactor = target.width / current.width;
+      const scaleYFactor = target.height / current.height;
+      element.scaleX = (element.scaleX || element.scale || 1) * scaleXFactor;
+      element.scaleY = (element.scaleY || element.scale || 1) * scaleYFactor;
+      element.scale = (element.scaleX + element.scaleY) / 2;
+      renderEditor();
+      const resized = measureSelectedBounds();
+      if (resized) {
+        element.tx += target.x - resized.x;
+        element.ty += target.y - resized.y;
+      }
+    }
+
+    function updateAnchorOverlay() {
+      refs.anchorLayer.innerHTML = "";
+      const element = activeElement();
+      if (!element) return;
+
+      const anchors = getPathAnchors(element.markup).filter(anchor => anchor.role === "anchor");
+      anchors.forEach(anchor => {
+        const p = transformLocalPoint(anchor.x, anchor.y, element);
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("class", "anchor-point" + (anchor.role === "control" ? " control" : ""));
+        circle.setAttribute("data-path-index", anchor.pathIndex);
+        circle.setAttribute("data-token-index", anchor.tokenIndex);
+        circle.setAttribute("data-y-token-index", anchor.yTokenIndex);
+        circle.setAttribute("data-role", anchor.role);
+        if (isSelectedAnchor(anchor)) circle.classList.add("selected");
+        circle.setAttribute("cx", p.x);
+        circle.setAttribute("cy", p.y);
+        circle.setAttribute("r", anchor.role === "control" ? 4 : 5);
+        circle.addEventListener("pointerdown", startAnchorDrag);
+        refs.anchorLayer.appendChild(circle);
+      });
+      updateSelectedBezierHandles(element);
+    }
+
+    function updateSelectedBezierHandles(element) {
+      const data = selectedAnchorRef ? getBezierDataForAnchor(element.markup, selectedAnchorRef) : null;
+      if (!data) return;
+      const anchorPoint = transformLocalPoint(data.anchor.x, data.anchor.y, element);
+      [data.inHandle, data.outHandle].filter(Boolean).forEach(handle => {
+        const handlePoint = transformLocalPoint(handle.x, handle.y, element);
+        const line = document.createElementNS(NS, "line");
+        line.setAttribute("class", "anchor-line");
+        line.setAttribute("x1", anchorPoint.x);
+        line.setAttribute("y1", anchorPoint.y);
+        line.setAttribute("x2", handlePoint.x);
+        line.setAttribute("y2", handlePoint.y);
+        refs.anchorLayer.appendChild(line);
+
+        const circle = document.createElementNS(NS, "circle");
+        circle.setAttribute("class", "bezier-handle-point");
+        circle.setAttribute("data-path-index", handle.pathIndex);
+        circle.setAttribute("data-token-index", handle.tokenIndex);
+        circle.setAttribute("data-y-token-index", handle.yTokenIndex);
+        circle.setAttribute("cx", handlePoint.x);
+        circle.setAttribute("cy", handlePoint.y);
+        circle.setAttribute("r", 4);
+        circle.addEventListener("pointerdown", startBezierHandleDrag);
+        refs.anchorLayer.appendChild(circle);
+      });
+    }
+
+    function startBezierHandleDrag(event) {
+      const element = activeElement();
+      if (!element) return;
+      event.preventDefault();
+      event.stopPropagation();
+      pushHistory();
+      const handleCanvasX = Number(event.currentTarget.getAttribute("cx"));
+      const handleCanvasY = Number(event.currentTarget.getAttribute("cy"));
+      bezierHandleDrag = {
+        pathIndex: Number(event.currentTarget.getAttribute("data-path-index")),
+        tokenIndex: Number(event.currentTarget.getAttribute("data-token-index")),
+        yTokenIndex: Number(event.currentTarget.getAttribute("data-y-token-index")),
+        startLocal: inverseTransformCanvasPoint(handleCanvasX, handleCanvasY, element),
+        elementStartMarkup: element.markup
+      };
+      refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onBezierHandlePointerMove(event) {
+      const element = activeElement();
+      if (!element || !bezierHandleDrag) return;
+      const point = svgPoint(event);
+      let local = inverseTransformCanvasPoint(point.x, point.y, element);
+      if (event.shiftKey) {
+        local = constrainPointFromStart(bezierHandleDrag.startLocal, local);
+      }
+      element.markup = movePathTokenPoint(bezierHandleDrag.elementStartMarkup, bezierHandleDrag.pathIndex, bezierHandleDrag.tokenIndex, bezierHandleDrag.yTokenIndex, local.x, local.y);
+      renderEditor();
+      renderInspector();
+      renderElements();
+    }
+
+    function constrainPointFromStart(start, point) {
+      if (!start) return point;
+      const dx = point.x - start.x;
+      const dy = point.y - start.y;
+      if (dx === 0 && dy === 0) return point;
+      const angle = Math.atan2(dy, dx);
+      const step = Math.PI / 4;
+      const snapped = Math.round(angle / step) * step;
+      const distance = Math.hypot(dx, dy);
+      return {
+        x: start.x + Math.cos(snapped) * distance,
+        y: start.y + Math.sin(snapped) * distance
+      };
+    }
+
+    function startAnchorDrag(event) {
+      const element = activeElement();
+      if (!element) return;
+      event.preventDefault();
+      event.stopPropagation();
+      pushHistory();
+      const start = svgPoint(event);
+      selectedAnchorRef = {
+        pathIndex: Number(event.currentTarget.getAttribute("data-path-index")),
+        tokenIndex: Number(event.currentTarget.getAttribute("data-token-index")),
+        yTokenIndex: Number(event.currentTarget.getAttribute("data-y-token-index"))
+      };
+      anchorDrag = {
+        pathIndex: selectedAnchorRef.pathIndex,
+        tokenIndex: selectedAnchorRef.tokenIndex,
+        yTokenIndex: selectedAnchorRef.yTokenIndex,
+        start,
+        elementStartMarkup: element.markup
+      };
+      renderInspector();
+      refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onAnchorPointerMove(event) {
+      const element = activeElement();
+      if (!element || !anchorDrag) return;
+      const point = svgPoint(event);
+      const local = inverseTransformCanvasPoint(point.x, point.y, element);
+      element.markup = movePathTokenPoint(anchorDrag.elementStartMarkup, anchorDrag.pathIndex, anchorDrag.tokenIndex, anchorDrag.yTokenIndex, local.x, local.y);
+      renderEditor();
+      renderInspector();
+      renderElements();
+    }
+
+    function measureSelectedBounds() {
+      const element = activeElement();
+      const group = element ? refs.glyphLayer.querySelector(`[data-element-id="${CSS.escape(element.id)}"]`) : null;
+      if (!group) return null;
+      try {
+        const box = group.getBBox();
+        const matrix = ownTransformMatrix(group);
+        if (!matrix) return null;
+        const points = [
+          svgDomPoint(box.x, box.y).matrixTransform(matrix),
+          svgDomPoint(box.x + box.width, box.y).matrixTransform(matrix),
+          svgDomPoint(box.x + box.width, box.y + box.height).matrixTransform(matrix),
+          svgDomPoint(box.x, box.y + box.height).matrixTransform(matrix)
+        ];
+        const xs = points.map(point => point.x);
+        const ys = points.map(point => point.y);
+        const minX = Math.min.apply(null, xs);
+        const minY = Math.min.apply(null, ys);
+        const maxX = Math.max.apply(null, xs);
+        const maxY = Math.max.apply(null, ys);
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+      } catch {
+        return null;
+      }
+    }
+
+    function measureSelectedLocalBounds() {
+      const element = activeElement();
+      const group = element ? refs.glyphLayer.querySelector(`[data-element-id="${CSS.escape(element.id)}"]`) : null;
+      if (!group) return null;
+      try {
+        const box = group.getBBox();
+        return { x: box.x, y: box.y, width: box.width, height: box.height };
+      } catch {
+        return null;
+      }
+    }
+
+    function ownTransformMatrix(group) {
+      const transform = group.transform && group.transform.baseVal ? group.transform.baseVal.consolidate() : null;
+      return transform ? transform.matrix : refs.editorSvg.createSVGMatrix();
+    }
+
+    function applySnapToElement(element) {
+      const group = refs.glyphLayer.querySelector(`[data-element-id="${CSS.escape(element.id)}"]`);
+      if (!group) return;
+      applyElementTransform(group, element, activeBoardOffset());
+      const bounds = measureSelectedBounds();
+      if (!bounds) return;
+
+      const board = activeBoardOffset();
+      const guidesX = [0, 80, 500, 920, 1000].map(value => value + board.x);
+      const guidesY = [0, 80, 500, 920, 1000].map(value => value + board.y);
+      const threshold = 8;
+      const xCandidates = [
+        { value: bounds.x, type: "left" },
+        { value: bounds.x + bounds.width / 2, type: "center" },
+        { value: bounds.x + bounds.width, type: "right" }
+      ];
+      const yCandidates = [
+        { value: bounds.y, type: "top" },
+        { value: bounds.y + bounds.height / 2, type: "middle" },
+        { value: bounds.y + bounds.height, type: "bottom" }
+      ];
+
+      let snapX = null;
+      let snapY = null;
+      xCandidates.forEach(candidate => {
+        guidesX.forEach(guide => {
+          const diff = guide - candidate.value;
+          if (Math.abs(diff) <= threshold && (!snapX || Math.abs(diff) < Math.abs(snapX.diff))) {
+            snapX = { guide, diff };
+          }
+        });
+      });
+      yCandidates.forEach(candidate => {
+        guidesY.forEach(guide => {
+          const diff = guide - candidate.value;
+          if (Math.abs(diff) <= threshold && (!snapY || Math.abs(diff) < Math.abs(snapY.diff))) {
+            snapY = { guide, diff };
+          }
+        });
+      });
+
+      clearSnapGuides();
+      if (snapX) {
+        element.tx += snapX.diff;
+        drawSnapGuide("x", snapX.guide);
+      }
+      if (snapY) {
+        element.ty += snapY.diff;
+        drawSnapGuide("y", snapY.guide);
+      }
+    }
+
+    function drawSnapGuide(axis, value) {
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("class", "snap-guide");
+      if (axis === "x") {
+        line.setAttribute("x1", value);
+        line.setAttribute("x2", value);
+        line.setAttribute("y1", activeBoardOffset().y);
+        line.setAttribute("y2", activeBoardOffset().y + 1000);
+      } else {
+        line.setAttribute("x1", activeBoardOffset().x);
+        line.setAttribute("x2", activeBoardOffset().x + 1000);
+        line.setAttribute("y1", value);
+        line.setAttribute("y2", value);
+      }
+      refs.snapLayer.appendChild(line);
+    }
+
+    function clearSnapGuides() {
+      refs.snapLayer.innerHTML = "";
+    }
+
+    function rectFromPoints(a, b) {
+      const x = Math.min(a.x, b.x);
+      const y = Math.min(a.y, b.y);
+      return {
+        x,
+        y,
+        width: Math.abs(a.x - b.x),
+        height: Math.abs(a.y - b.y)
+      };
+    }
+
+    function rectIntersects(a, b) {
+      return a.x <= b.x + b.width &&
+        a.x + a.width >= b.x &&
+        a.y <= b.y + b.height &&
+        a.y + a.height >= b.y;
+    }
+
+    function measureElementBounds(elementId) {
+      const previous = selectedElementId;
+      selectedElementId = elementId;
+      const bounds = measureSelectedBounds();
+      selectedElementId = previous;
+      return bounds;
+    }
+
+    function snapRectToGuides(rect) {
+      const board = activeBoardOffset();
+      const guidesX = [0, 80, 500, 920, 1000].map(value => value + board.x);
+      const guidesY = [0, 80, 500, 920, 1000].map(value => value + board.y);
+      const threshold = 8;
+      const candidatesX = [
+        { value: rect.x, apply: diff => { rect.x += diff; } },
+        { value: rect.x + rect.width / 2, apply: diff => { rect.x += diff; } },
+        { value: rect.x + rect.width, apply: diff => { rect.width += diff; } }
+      ];
+      const candidatesY = [
+        { value: rect.y, apply: diff => { rect.y += diff; } },
+        { value: rect.y + rect.height / 2, apply: diff => { rect.y += diff; } },
+        { value: rect.y + rect.height, apply: diff => { rect.height += diff; } }
+      ];
+      clearSnapGuides();
+      applyBestSnap(candidatesX, guidesX, threshold, "x");
+      applyBestSnap(candidatesY, guidesY, threshold, "y");
+      rect.width = Math.max(4, rect.width);
+      rect.height = Math.max(4, rect.height);
+      return rect;
+    }
+
+    function applyBestSnap(candidates, guides, threshold, axis) {
+      let best = null;
+      candidates.forEach(candidate => {
+        guides.forEach(guide => {
+          const diff = guide - candidate.value;
+          if (Math.abs(diff) <= threshold && (!best || Math.abs(diff) < Math.abs(best.diff))) {
+            best = { candidate, guide, diff };
+          }
+        });
+      });
+      if (best) {
+        best.candidate.apply(best.diff);
+        drawSnapGuide(axis, best.guide);
+      }
+    }
+
+    function copyPathData() {
+      const text = refs.pathDataOutput.value;
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => setStatus("패스 d 데이터를 복사했습니다."));
+    }
+
+    function renderBezierInspector(element) {
+      const inputs = [refs.anchorXInput, refs.anchorYInput, refs.handleInXInput, refs.handleInYInput, refs.handleOutXInput, refs.handleOutYInput];
+      const data = element && selectedAnchorRef ? getBezierDataForAnchor(element.markup, selectedAnchorRef) : null;
+      inputs.forEach(input => input.disabled = !data);
+      if (!data) {
+        inputs.forEach(input => input.value = 0);
+        return;
+      }
+      refs.anchorXInput.value = round2(data.anchor.x);
+      refs.anchorYInput.value = round2(data.anchor.y);
+      refs.handleInXInput.value = data.inHandle ? round2(data.inHandle.x) : "";
+      refs.handleInYInput.value = data.inHandle ? round2(data.inHandle.y) : "";
+      refs.handleOutXInput.value = data.outHandle ? round2(data.outHandle.x) : "";
+      refs.handleOutYInput.value = data.outHandle ? round2(data.outHandle.y) : "";
+    }
+
+    function applyBezierValues() {
+      const element = activeElement();
+      if (!element || !selectedAnchorRef) return;
+      const data = getBezierDataForAnchor(element.markup, selectedAnchorRef);
+      if (!data) return;
+      pushHistory();
+
+      let markup = element.markup;
+      markup = movePathTokenPoint(markup, selectedAnchorRef.pathIndex, selectedAnchorRef.tokenIndex, selectedAnchorRef.yTokenIndex, Number(refs.anchorXInput.value), Number(refs.anchorYInput.value));
+      const updatedData = getBezierDataForAnchor(markup, selectedAnchorRef);
+      if (updatedData && updatedData.inHandle && refs.handleInXInput.value !== "" && refs.handleInYInput.value !== "") {
+        markup = movePathTokenPoint(markup, selectedAnchorRef.pathIndex, updatedData.inHandle.tokenIndex, updatedData.inHandle.yTokenIndex, Number(refs.handleInXInput.value), Number(refs.handleInYInput.value));
+      }
+      const updatedData2 = getBezierDataForAnchor(markup, selectedAnchorRef);
+      if (updatedData2 && updatedData2.outHandle && refs.handleOutXInput.value !== "" && refs.handleOutYInput.value !== "") {
+        markup = movePathTokenPoint(markup, selectedAnchorRef.pathIndex, updatedData2.outHandle.tokenIndex, updatedData2.outHandle.yTokenIndex, Number(refs.handleOutXInput.value), Number(refs.handleOutYInput.value));
+      }
+      element.markup = markup;
+      renderAll();
+    }
+
+    function isSelectedAnchor(anchor) {
+      return selectedAnchorRef &&
+        selectedAnchorRef.pathIndex === anchor.pathIndex &&
+        selectedAnchorRef.tokenIndex === anchor.tokenIndex &&
+        selectedAnchorRef.yTokenIndex === anchor.yTokenIndex;
+    }
+
+    function getBezierDataForAnchor(markup, anchorRef) {
+      const anchors = getPathAnchors(markup);
+      const anchor = anchors.find(item => item.pathIndex === anchorRef.pathIndex && item.tokenIndex === anchorRef.tokenIndex && item.yTokenIndex === anchorRef.yTokenIndex);
+      if (!anchor) return null;
+
+      const samePath = anchors.filter(item => item.pathIndex === anchorRef.pathIndex);
+      const anchorOrder = samePath.filter(item => item.role === "anchor");
+      const index = anchorOrder.findIndex(item => item.tokenIndex === anchor.tokenIndex && item.yTokenIndex === anchor.yTokenIndex);
+      const prevAnchor = index > 0 ? anchorOrder[index - 1] : null;
+      const nextAnchor = index >= 0 && index < anchorOrder.length - 1 ? anchorOrder[index + 1] : null;
+
+      const inHandle = samePath
+        .filter(item => item.role === "control" && prevAnchor && item.tokenIndex > prevAnchor.tokenIndex && item.tokenIndex < anchor.tokenIndex)
+        .slice(-1)[0] || null;
+      const outHandle = samePath
+        .filter(item => item.role === "control" && nextAnchor && item.tokenIndex > anchor.tokenIndex && item.tokenIndex < nextAnchor.tokenIndex)[0] || null;
+
+      return {
+        anchor,
+        inHandle,
+        outHandle
+      };
+    }
+
+    function extractPathData(markup) {
+      const wrapper = document.createElementNS(NS, "svg");
+      wrapper.innerHTML = markup;
+      return Array.from(wrapper.querySelectorAll("path"))
+        .map(path => path.getAttribute("d"))
+        .filter(Boolean);
+    }
+
+    function getPathAnchors(markup) {
+      const wrapper = document.createElementNS(NS, "svg");
+      wrapper.innerHTML = markup;
+      const paths = Array.from(wrapper.querySelectorAll("path"));
+      const anchors = [];
+      paths.forEach((path, pathIndex) => {
+        parsePathAnchors(path.getAttribute("d") || "").forEach(anchor => {
+          anchors.push({ ...anchor, pathIndex });
+        });
+      });
+      return anchors;
+    }
+
+    function movePathTokenPoint(markup, pathIndex, tokenIndex, yTokenIndex, x, y) {
+      const wrapper = document.createElementNS(NS, "svg");
+      wrapper.innerHTML = markup;
+      const paths = Array.from(wrapper.querySelectorAll("path"));
+      const path = paths[pathIndex];
+      if (!path) return markup;
+      const tokens = tokenizePath(path.getAttribute("d") || "");
+      const anchor = parsePathAnchors(path.getAttribute("d") || "").find(item => item.tokenIndex === tokenIndex && item.yTokenIndex === yTokenIndex);
+      if (!anchor) return markup;
+      tokens[tokenIndex] = formatPathNumber(anchor.relative ? x - anchor.baseX : x);
+      tokens[yTokenIndex] = formatPathNumber(anchor.relative ? y - anchor.baseY : y);
+      path.setAttribute("d", serializePathTokens(tokens));
+      return wrapper.innerHTML;
+    }
+
+    function parsePathAnchors(d) {
+      const tokens = tokenizePath(d);
+      const anchors = [];
+      let command = "";
+      let i = 0;
+      let currentX = 0;
+      let currentY = 0;
+      let subpathX = 0;
+      let subpathY = 0;
+
+      while (i < tokens.length) {
+        if (isPathCommand(tokens[i])) {
+          command = tokens[i];
+          i++;
+        }
+        if (!command) break;
+
+        const lower = command.toLowerCase();
+        const relative = command === lower;
+        const size = commandParamCount(lower);
+        if (size === 0) {
+          if (lower === "z") {
+            currentX = subpathX;
+            currentY = subpathY;
+          }
+          continue;
+        }
+
+        while (i < tokens.length && !isPathCommand(tokens[i])) {
+          if (i + size - 1 >= tokens.length) break;
+          const segmentStartX = currentX;
+          const segmentStartY = currentY;
+
+          if (lower === "m") {
+            const point = readPoint(tokens, i, i + 1, relative, segmentStartX, segmentStartY);
+            anchors.push(makeAnchor(i, i + 1, point, relative, segmentStartX, segmentStartY, "anchor"));
+            currentX = point.x;
+            currentY = point.y;
+            subpathX = currentX;
+            subpathY = currentY;
+            i += size;
+            command = relative ? "l" : "L";
+            break;
+          }
+
+          if (lower === "l" || lower === "t") {
+            const point = readPoint(tokens, i, i + 1, relative, segmentStartX, segmentStartY);
+            anchors.push(makeAnchor(i, i + 1, point, relative, segmentStartX, segmentStartY, "anchor"));
+            currentX = point.x;
+            currentY = point.y;
+          } else if (lower === "c") {
+            const p1 = readPoint(tokens, i, i + 1, relative, segmentStartX, segmentStartY);
+            const p2 = readPoint(tokens, i + 2, i + 3, relative, segmentStartX, segmentStartY);
+            const p3 = readPoint(tokens, i + 4, i + 5, relative, segmentStartX, segmentStartY);
+            anchors.push(makeAnchor(i, i + 1, p1, relative, segmentStartX, segmentStartY, "control"));
+            anchors.push(makeAnchor(i + 2, i + 3, p2, relative, segmentStartX, segmentStartY, "control"));
+            anchors.push(makeAnchor(i + 4, i + 5, p3, relative, segmentStartX, segmentStartY, "anchor"));
+            currentX = p3.x;
+            currentY = p3.y;
+          } else if (lower === "s" || lower === "q") {
+            const p1 = readPoint(tokens, i, i + 1, relative, segmentStartX, segmentStartY);
+            const p2 = readPoint(tokens, i + 2, i + 3, relative, segmentStartX, segmentStartY);
+            anchors.push(makeAnchor(i, i + 1, p1, relative, segmentStartX, segmentStartY, "control"));
+            anchors.push(makeAnchor(i + 2, i + 3, p2, relative, segmentStartX, segmentStartY, "anchor"));
+            currentX = p2.x;
+            currentY = p2.y;
+          } else if (lower === "a") {
+            const point = readPoint(tokens, i + 5, i + 6, relative, segmentStartX, segmentStartY);
+            anchors.push(makeAnchor(i + 5, i + 6, point, relative, segmentStartX, segmentStartY, "anchor"));
+            currentX = point.x;
+            currentY = point.y;
+          } else if (lower === "h") {
+            currentX = relative ? currentX + Number(tokens[i]) : Number(tokens[i]);
+          } else if (lower === "v") {
+            currentY = relative ? currentY + Number(tokens[i]) : Number(tokens[i]);
+          }
+
+          i += size;
+        }
+      }
+      return anchors;
+    }
+
+    function readPoint(tokens, xIndex, yIndex, relative, baseX, baseY) {
+      const x = Number(tokens[xIndex]);
+      const y = Number(tokens[yIndex]);
+      return {
+        x: relative ? baseX + x : x,
+        y: relative ? baseY + y : y
+      };
+    }
+
+    function makeAnchor(tokenIndex, yTokenIndex, point, relative, baseX, baseY, role) {
+      return {
+        tokenIndex,
+        yTokenIndex,
+        x: point.x,
+        y: point.y,
+        relative,
+        baseX,
+        baseY,
+        role
+      };
+    }
+
+    function tokenizePath(d) {
+      return (d.match(/[a-zA-Z]|[-+]?(?:\d*\.\d+|\d+)(?:e[-+]?\d+)?/g) || []);
+    }
+
+    function serializePathTokens(tokens) {
+      let out = "";
+      tokens.forEach(token => {
+        if (isPathCommand(token)) {
+          out += (out ? " " : "") + token;
+        } else {
+          out += (out && !/[a-zA-Z]\s*$/.test(out) ? " " : "") + token;
+        }
+      });
+      return out;
+    }
+
+    function isPathCommand(token) {
+      return /^[a-zA-Z]$/.test(token);
+    }
+
+    function commandParamCount(command) {
+      return { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0 }[command] || 0;
+    }
+
+    function pointOffsetsForCommand(command) {
+      if (command === "m" || command === "l" || command === "t") return [[0, 1, "anchor"]];
+      if (command === "c") return [[0, 1, "control"], [2, 3, "control"], [4, 5, "anchor"]];
+      if (command === "s" || command === "q") return [[0, 1, "control"], [2, 3, "anchor"]];
+      if (command === "a") return [[5, 6, "anchor"]];
+      return [];
+    }
+
+    function transformLocalPoint(x, y, element) {
+      const sx = element.scaleX || element.scale || 1;
+      const sy = element.scaleY || element.scale || 1;
+      const angle = (element.rotate || 0) * Math.PI / 180;
+      const board = activeBoardOffset();
+      const scaledX = x * sx;
+      const scaledY = y * sy;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      return {
+        x: board.x + (element.tx || 0) + scaledX * cos - scaledY * sin,
+        y: board.y + (element.ty || 0) + scaledX * sin + scaledY * cos
+      };
+    }
+
+    function inverseTransformCanvasPoint(x, y, element) {
+      const sx = element.scaleX || element.scale || 1;
+      const sy = element.scaleY || element.scale || 1;
+      const angle = -((element.rotate || 0) * Math.PI / 180);
+      const board = activeBoardOffset();
+      const dx = x - board.x - (element.tx || 0);
+      const dy = y - board.y - (element.ty || 0);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      return {
+        x: (dx * cos - dy * sin) / sx,
+        y: (dx * sin + dy * cos) / sy
+      };
+    }
+
+    function formatPathNumber(value) {
+      return String(Math.round(value * 1000) / 1000);
+    }
+
+    function parseViewBox(svg) {
+      const raw = svg.getAttribute("viewBox");
+      if (raw) {
+        const values = raw.trim().split(/[\s,]+/).map(Number);
+        if (values.length === 4 && values.every(value => !isNaN(value))) return values;
+      }
+      const width = Number(String(svg.getAttribute("width") || "1000").replace(/[^\d.-]/g, "")) || 1000;
+      const height = Number(String(svg.getAttribute("height") || "1000").replace(/[^\d.-]/g, "")) || 1000;
+      return [0, 0, width, height];
+    }
+
+    function svgDomPoint(x, y) {
+      const point = refs.editorSvg.createSVGPoint();
+      point.x = x;
+      point.y = y;
+      return point;
+    }
+
+    function round2(value) {
+      return Math.round(value * 100) / 100;
+    }
+
+    function exportCurrentGlyph() {
+      const glyph = activeGlyph();
+      if (!glyph) return;
+      download(`${glyph.name}.svg`, makeGlyphSvg(glyph, false), "image/svg+xml");
+    }
+
+    function exportProject() {
+      download("hangul-glyphs-lab-project.json", JSON.stringify(state, null, 2), "application/json");
+    }
+
+    function exportFontPackage() {
+      updateFontMeta();
+      const fontPackage = {
+        schema: "hangul-glyphs-lab-font-package-v1",
+        font: {
+          familyName: state.font.familyName || "HangulGlyphsLab",
+          styleName: state.font.styleName || "Regular",
+          unitsPerEm: 1000,
+          ascent: 880,
+          descent: -120,
+          baseline: 880,
+          formats: state.font.formats || ["ttf"]
+        },
+        glyphs: state.glyphs
+          .filter(glyph => glyph.char || glyph.elements.length > 0)
+          .map(glyph => ({
+            id: glyph.id,
+            name: glyph.name,
+            char: glyph.char || "",
+            width: glyph.width || 1000,
+            boardX: glyph.boardX || 0,
+            boardY: glyph.boardY || 0,
+            elements: glyph.elements || [],
+            svg: makeGlyphSvg(glyph, false)
+          })),
+        components: state.components || []
+      };
+      const familySlug = (fontPackage.font.familyName || "HangulGlyphsLab").replace(/[^\w.-]+/g, "-");
+      download(`${familySlug}-font-package.json`, JSON.stringify(fontPackage, null, 2), "application/json");
+    }
+
+    function makeGlyphSvg(glyph, thumb) {
+      const content = glyph.elements.map(element => {
+        const group = svgFromMarkup(element.markup);
+        applyElementTransform(group, element);
+        return new XMLSerializer().serializeToString(group);
+      }).join("");
+      const guides = thumb ? "" : `<rect x="0" y="0" width="1000" height="1000" fill="white"/><line x1="0" y1="880" x2="1000" y2="880" stroke="#d5534a" stroke-width="1"/>`;
+      return `<svg xmlns="${NS}" viewBox="0 0 1000 1000">${guides}<g id="${escapeAttr(glyph.name)}">${content}</g></svg>`;
+    }
+
+    function svgFromMarkup(markup) {
+      const wrapper = document.createElementNS(NS, "svg");
+      wrapper.innerHTML = markup;
+      const node = wrapper.firstElementChild || document.createElementNS(NS, "g");
+      return document.importNode(node, true);
+    }
+
+    function svgPoint(event) {
+      const point = refs.editorSvg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      return point.matrixTransform(refs.editorSvg.getScreenCTM().inverse());
+    }
+
+    function download(filename, text, type) {
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function setStatus(message) {
+      refs.statusBox.textContent = message;
+    }
+
+    function handleEditorShortcut(event) {
+      const key = event.key.toLowerCase();
+      const isCtrl = event.ctrlKey || event.metaKey;
+      if (!isCtrl) return false;
+
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+        return true;
+      }
+
+      if (key === "y") {
+        event.preventDefault();
+        redo();
+        return true;
+      }
+
+      if (key === "g") {
+        event.preventDefault();
+        if (event.shiftKey) ungroupSelection();
+        else groupSelection();
+        return true;
+      }
+
+      if (key === "r") {
+        event.preventDefault();
+        pushHistory();
+        state.rulersOn = !state.rulersOn;
+        renderAll();
+        setStatus(state.rulersOn ? "자가 켜졌습니다." : "자가 꺼졌습니다.");
+        return true;
+      }
+
+      if (event.key === "2" || event.key === "@" || event.code === "Digit2") {
+        event.preventDefault();
+        if (event.shiftKey) unlockSelection();
+        else lockSelection();
+        return true;
+      }
+
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        setZoom(state.zoom * 1.12);
+        return true;
+      }
+
+      if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        setZoom(state.zoom / 1.12);
+        return true;
+      }
+
+      if (event.key === "0") {
+        event.preventDefault();
+        fitView();
+        return true;
+      }
+
+      return false;
+    }
+
+    function snapshotState() {
+      return JSON.stringify({
+        glyphs: state.glyphs,
+        activeGlyphId: state.activeGlyphId,
+        components: state.components,
+        font: state.font,
+        userGuides: state.userGuides,
+        boardPosition: state.boardPosition,
+        rulersOn: state.rulersOn,
+        selectedElementId,
+        selectedElementIds,
+        selectedGuideIds,
+        selectedBoardId,
+        selectedComponentId,
+        selectedAnchorRef
+      });
+    }
+
+    function restoreSnapshot(snapshot) {
+      const restored = JSON.parse(snapshot);
+      state.glyphs = restored.glyphs || [];
+      state.activeGlyphId = restored.activeGlyphId || (state.glyphs[0] && state.glyphs[0].id) || null;
+      state.components = restored.components || [];
+      state.font = restored.font || state.font || { familyName: "HangulGlyphsLab", styleName: "Regular", formats: ["ttf"] };
+      state.userGuides = restored.userGuides || [];
+      normalizeBoardPositions();
+      state.boardPosition = restored.boardPosition || "center";
+      state.rulersOn = !!restored.rulersOn;
+      selectedElementId = restored.selectedElementId || null;
+      selectedElementIds = restored.selectedElementIds || (selectedElementId ? [selectedElementId] : []);
+      selectedGuideIds = restored.selectedGuideIds || [];
+      selectedBoardId = restored.selectedBoardId || null;
+      selectedComponentId = restored.selectedComponentId || null;
+      selectedAnchorRef = restored.selectedAnchorRef || null;
+      renderAll();
+    }
+
+    function pushHistory() {
+      if (historySuspended) return;
+      const snapshot = snapshotState();
+      if (undoStack[undoStack.length - 1] === snapshot) return;
+      undoStack.push(snapshot);
+      if (undoStack.length > 80) undoStack.shift();
+      redoStack = [];
+    }
+
+    function undo() {
+      if (undoStack.length === 0) return;
+      historySuspended = true;
+      redoStack.push(snapshotState());
+      restoreSnapshot(undoStack.pop());
+      historySuspended = false;
+      setStatus("되돌렸습니다.");
+    }
+
+    function redo() {
+      if (redoStack.length === 0) return;
+      historySuspended = true;
+      undoStack.push(snapshotState());
+      restoreSnapshot(redoStack.pop());
+      historySuspended = false;
+      setStatus("다시 실행했습니다.");
+    }
+
+    function handleWheelPan(event) {
+      event.preventDefault();
+      if (event.altKey) {
+        const factor = event.deltaY < 0 ? 1.1 : 1 / 1.1;
+        setZoom(state.zoom * factor, event);
+        return;
+      }
+
+      const amount = Math.max(24, Math.min(160, Math.abs(event.deltaY || 0)));
+      if (event.ctrlKey || event.metaKey) {
+        state.panX += event.deltaY < 0 ? amount : -amount;
+      } else {
+        state.panY += event.deltaY < 0 ? amount : -amount;
+      }
+      applyZoom();
+      saveState();
+    }
+
+    function setZoom(value, anchorEvent) {
+      const oldZoom = state.zoom || 1;
+      const nextZoom = Math.max(0.25, Math.min(6, value));
+      if (Math.abs(nextZoom - oldZoom) < 0.0001) return;
+
+      const anchor = anchorEvent ? getZoomAnchor(anchorEvent) : null;
+      state.zoom = nextZoom;
+      applyZoom();
+      if (anchor) keepZoomAnchorUnderCursor(anchor);
+      saveState();
+      setStatus("확대율: " + Math.round(state.zoom * 100) + "%");
+    }
+
+    function applyZoom() {
+      document.documentElement.style.setProperty("--zoom", state.zoom || 1);
+      document.documentElement.style.setProperty("--pan-x", (state.panX || 0) + "px");
+      document.documentElement.style.setProperty("--pan-y", (state.panY || 0) + "px");
+    }
+
+    function groupSelection() {
+      const glyph = activeGlyph();
+      if (!glyph || selectedElementIds.length < 2) return;
+      pushHistory();
+      const selected = glyph.elements.filter(element => selectedElementIds.includes(element.id));
+      const markup = selected.map(element => {
+        const g = svgFromMarkup(element.markup);
+        applyElementTransform(g, element);
+        return new XMLSerializer().serializeToString(g);
+      }).join("");
+      const group = {
+        id: uid(),
+        name: "그룹",
+        markup: `<g data-group="true">${markup}</g>`,
+        tx: 0,
+        ty: 0,
+        scale: 1,
+        scaleX: 1,
+        scaleY: 1,
+        rotate: 0,
+        opacity: 1
+      };
+      glyph.elements = glyph.elements.filter(element => element.locked || !selectedElementIds.includes(element.id));
+      glyph.elements.push(group);
+      selectedElementIds = [group.id];
+      selectedElementId = group.id;
+      selectedAnchorRef = null;
+      renderAll();
+    }
+
+    function ungroupSelection() {
+      const glyph = activeGlyph();
+      const element = activeElement();
+      if (!glyph || !element || !/data-group="true"/.test(element.markup)) return;
+      pushHistory();
+      const wrapper = document.createElementNS(NS, "svg");
+      wrapper.innerHTML = element.markup;
+      const children = Array.from(wrapper.firstElementChild ? wrapper.firstElementChild.children : []);
+      const newElements = children.map((child, index) => ({
+        id: uid(),
+        name: `그룹해제-${index + 1}`,
+        markup: new XMLSerializer().serializeToString(child),
+        tx: element.tx || 0,
+        ty: element.ty || 0,
+        scale: element.scale || 1,
+        scaleX: element.scaleX || element.scale || 1,
+        scaleY: element.scaleY || element.scale || 1,
+        rotate: element.rotate || 0,
+        opacity: element.opacity == null ? 1 : element.opacity
+      }));
+      glyph.elements = glyph.elements.filter(item => item.id !== element.id).concat(newElements);
+      selectedElementIds = newElements.map(item => item.id);
+      selectedElementId = selectedElementIds[0] || null;
+      selectedAnchorRef = null;
+      renderAll();
+    }
+
+    function lockSelection() {
+      const glyph = activeGlyph();
+      const hasElementSelection = glyph && selectedElementIds.length > 0;
+      const hasGuideSelection = selectedGuideIds.length > 0;
+      const board = state.glyphs.find(item => item.id === selectedBoardId);
+      const hasBoardSelection = !!board;
+      if (!hasElementSelection && !hasGuideSelection && !hasBoardSelection) return;
+      pushHistory();
+      if (glyph) {
+        glyph.elements.forEach(element => {
+          if (selectedElementIds.includes(element.id)) element.locked = true;
+        });
+      }
+      state.userGuides.forEach(guide => {
+        if (selectedGuideIds.includes(guide.id)) guide.locked = true;
+      });
+      if (board) board.boardLocked = true;
+      renderAll();
+      setStatus("선택한 개체/가이드/아트보드를 잠갔습니다.");
+    }
+
+    function unlockSelection() {
+      const glyph = activeGlyph();
+      const hasElementSelection = glyph && selectedElementIds.length > 0;
+      const hasGuideSelection = selectedGuideIds.length > 0;
+      const board = state.glyphs.find(item => item.id === selectedBoardId);
+      const hasBoardSelection = !!board;
+      if (!hasElementSelection && !hasGuideSelection && !hasBoardSelection) return;
+      pushHistory();
+      if (glyph) {
+        glyph.elements.forEach(element => {
+          if (selectedElementIds.includes(element.id)) element.locked = false;
+        });
+      }
+      state.userGuides.forEach(guide => {
+        if (selectedGuideIds.includes(guide.id)) guide.locked = false;
+      });
+      if (board) board.boardLocked = false;
+      renderAll();
+      setStatus("선택한 개체/가이드/아트보드 잠금을 해제했습니다.");
+    }
+
+    function renderNeighborBoards() {
+      refs.neighborBoardLayer.innerHTML = "";
+      state.glyphs.forEach(glyph => {
+        const pos = glyphBoardOffset(glyph.id);
+        const rect = document.createElementNS(NS, "rect");
+        rect.setAttribute("class", [
+          "neighbor-board",
+          glyph.id === state.activeGlyphId ? "active-slot" : "",
+          glyph.id === selectedBoardId ? "selected-board" : "",
+          glyph.boardLocked ? "locked-board" : ""
+        ].filter(Boolean).join(" "));
+        rect.setAttribute("x", pos.x);
+        rect.setAttribute("y", pos.y);
+        rect.setAttribute("width", BOARD_SIZE);
+        rect.setAttribute("height", BOARD_SIZE);
+        rect.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          selectBoard(glyph.id);
+          startBoardDrag(event, glyph.id);
+        });
+        refs.neighborBoardLayer.appendChild(rect);
+
+        if (glyph.id !== state.activeGlyphId && glyph.char) {
+          const preview = document.createElementNS(NS, "text");
+          preview.setAttribute("class", "background-glyph board-preview");
+          preview.setAttribute("x", pos.x + 500);
+          preview.setAttribute("y", pos.y + 505);
+          preview.textContent = glyph.char;
+          refs.neighborBoardLayer.appendChild(preview);
+        }
+
+        const label = document.createElementNS(NS, "text");
+        label.setAttribute("class", "neighbor-label");
+        label.setAttribute("x", pos.x + 500);
+        label.setAttribute("y", pos.y - 32);
+        label.textContent = `${glyph.char || ""} ${glyph.name}`;
+        refs.neighborBoardLayer.appendChild(label);
+      });
+      const activeOffset = activeBoardOffset();
+      refs.activeBoardGuide.setAttribute("transform", `translate(${activeOffset.x} ${activeOffset.y})`);
+    }
+
+    function renderUserGuides() {
+      refs.userGuideLayer.innerHTML = "";
+      state.userGuides.forEach(guide => {
+        if (!guide.id) guide.id = uid();
+      });
+      state.userGuides.forEach(guide => {
+        const hitLine = document.createElementNS(NS, "line");
+        const line = document.createElementNS(NS, "line");
+        hitLine.setAttribute("class", "guide-hit");
+        hitLine.setAttribute("data-guide-id", guide.id);
+        line.setAttribute("class", [
+          "user-guide",
+          selectedGuideIds.includes(guide.id) ? "selected" : "",
+          guide.locked ? "locked" : ""
+        ].filter(Boolean).join(" "));
+        line.setAttribute("data-guide-id", guide.id);
+        if (guide.axis === "x") {
+          [hitLine, line].forEach(item => {
+            item.setAttribute("x1", -2400);
+            item.setAttribute("x2", 5600);
+            item.setAttribute("y1", guide.value);
+            item.setAttribute("y2", guide.value);
+          });
+        } else {
+          [hitLine, line].forEach(item => {
+            item.setAttribute("x1", guide.value);
+            item.setAttribute("x2", guide.value);
+            item.setAttribute("y1", -2400);
+            item.setAttribute("y2", 5600);
+          });
+        }
+        hitLine.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          event.stopPropagation();
+          selectGuide(guide.id, event);
+          if (event.ctrlKey || event.metaKey) return;
+          startGuideMoveDrag(event, guide.id);
+        });
+        refs.userGuideLayer.appendChild(hitLine);
+        refs.userGuideLayer.appendChild(line);
+      });
+    }
+
+    function renderRulers() {
+      document.body.classList.toggle("rulers-on", !!state.rulersOn);
+      renderRulerMarks();
+    }
+
+    function renderRulerMarks() {
+      refs.rulerX.innerHTML = "";
+      refs.rulerY.innerHTML = "";
+      for (let value = 0; value <= 1000; value += 50) {
+        const isMajor = value % 100 === 0;
+        const xMark = document.createElement("span");
+        xMark.className = "ruler-mark" + (isMajor ? "" : " minor");
+        xMark.style.left = (value / 10) + "%";
+        xMark.textContent = isMajor ? value : "";
+        refs.rulerX.appendChild(xMark);
+
+        const yMark = document.createElement("span");
+        yMark.className = "ruler-mark" + (isMajor ? "" : " minor");
+        yMark.style.top = (value / 10) + "%";
+        yMark.textContent = isMajor ? value : "";
+        refs.rulerY.appendChild(yMark);
+      }
+    }
+
+    function handleOutsidePointerDown(event) {
+      if (event.target.closest(".app")) return;
+      if (event.target.closest("#canvasContextMenu")) return;
+      selectElement(null);
+    }
+
+    function startGuideDrag(event, axis) {
+      event.preventDefault();
+      if (!state.rulersOn) return;
+      pushHistory();
+      guideDrag = { id: uid(), axis };
+      refs.editorSvg.setPointerCapture && refs.editorSvg.setPointerCapture(event.pointerId);
+      document.addEventListener("pointermove", onGuideDrag);
+      document.addEventListener("pointerup", endGuideDrag, { once: true });
+    }
+
+    function startGuideMoveDrag(event, guideId) {
+      const guide = state.userGuides.find(item => item.id === guideId);
+      if (!guide) return;
+      if (guide.locked) {
+        setStatus("잠긴 가이드는 이동할 수 없습니다.");
+        return;
+      }
+      pushHistory();
+      const selectedIds = selectedGuideIds.includes(guideId) ? selectedGuideIds.slice() : [guideId];
+      const point = svgPoint(event);
+      guideMoveDrag = {
+        start: point,
+        guides: state.userGuides
+          .filter(item => selectedIds.includes(item.id) && !item.locked)
+          .map(item => ({ id: item.id, axis: item.axis, value: item.value }))
+      };
+      refs.editorSvg.setPointerCapture && refs.editorSvg.setPointerCapture(event.pointerId);
+    }
+
+    function onGuideMovePointerMove(event) {
+      if (!guideMoveDrag) return;
+      const point = svgPoint(event);
+      const dx = point.x - guideMoveDrag.start.x;
+      const dy = point.y - guideMoveDrag.start.y;
+      guideMoveDrag.guides.forEach(startGuide => {
+        const guide = state.userGuides.find(item => item.id === startGuide.id);
+        if (!guide) return;
+        guide.value = startGuide.axis === "x" ? startGuide.value + dy : startGuide.value + dx;
+      });
+      renderUserGuides();
+      saveState();
+    }
+
+    function onGuideDrag(event) {
+      if (!guideDrag) return;
+      const point = svgPoint(event);
+      const value = guideDrag.axis === "x" ? point.y : point.x;
+      const temp = { id: guideDrag.id, axis: guideDrag.axis, value };
+      state.userGuides = state.userGuides.filter(guide => !guide.preview);
+      state.userGuides.push({ ...temp, preview: true });
+      renderUserGuides();
+    }
+
+    function endGuideDrag() {
+      if (!guideDrag) return;
+      const createdGuide = state.userGuides.find(guide => guide.preview && guide.id === guideDrag.id);
+      state.userGuides = state.userGuides.map(guide => ({
+        id: guide.id || uid(),
+        axis: guide.axis,
+        value: guide.value,
+        locked: !!guide.locked
+      }));
+      selectedGuideIds = createdGuide ? [createdGuide.id] : [];
+      guideDrag = null;
+      saveState();
+      renderAll();
+    }
+
+    function openCanvasContextMenu(event) {
+      event.preventDefault();
+      refs.canvasContextMenu.style.display = "block";
+      refs.canvasContextMenu.style.left = event.clientX + "px";
+      refs.canvasContextMenu.style.top = event.clientY + "px";
+    }
+
+    function hideCanvasContextMenu() {
+      refs.canvasContextMenu.style.display = "none";
+    }
+
+    function handleCanvasContextMenu(event) {
+      const button = event.target.closest("button[data-position]");
+      if (!button) return;
+      pushHistory();
+      state.boardPosition = button.getAttribute("data-position");
+      const offsets = {
+        center: [0, 0],
+        top: [0, 360],
+        bottom: [0, -360],
+        left: [360, 0],
+        right: [-360, 0]
+      };
+      const offset = offsets[state.boardPosition] || offsets.center;
+      state.panX = offset[0];
+      state.panY = offset[1];
+      applyZoom();
+      hideCanvasContextMenu();
+      setStatus("캔버스 배치: " + button.textContent);
+      saveState();
+    }
+
+    function fitView() {
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      applyZoom();
+      saveState();
+      setStatus("화면 맞춤.");
+    }
+
+    function getZoomAnchor(event) {
+      const svgRect = refs.editorSvg.getBoundingClientRect();
+      return {
+        clientX: event.clientX,
+        clientY: event.clientY,
+        ratioX: clamp((event.clientX - svgRect.left) / svgRect.width, 0, 1),
+        ratioY: clamp((event.clientY - svgRect.top) / svgRect.height, 0, 1)
+      };
+    }
+
+    function keepZoomAnchorUnderCursor(anchor) {
+      const svgRect = refs.editorSvg.getBoundingClientRect();
+      const desiredLeft = anchor.clientX - anchor.ratioX * svgRect.width;
+      const desiredTop = anchor.clientY - anchor.ratioY * svgRect.height;
+      state.panX += desiredLeft - svgRect.left;
+      state.panY += desiredTop - svgRect.top;
+      applyZoom();
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+    }
+
+    function escapeAttr(text) {
+      return escapeHtml(text).replace(/\s+/g, "_");
+    }
+
+    function decodeEntities(text) {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = text;
+      return textarea.value;
+    }
+  </script>
+</body>
+</html>
