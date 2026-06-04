@@ -2077,7 +2077,7 @@
 
     function updateResizeHandles(box) {
       refs.handleLayer.innerHTML = "";
-      const size = uiSize(10);
+      const size = uiSize(16);
       const handles = [
         ["nw", box.x, box.y],
         ["n", box.x + box.width / 2, box.y],
@@ -2097,7 +2097,7 @@
         rect.setAttribute("y", y - size / 2);
         rect.setAttribute("width", size);
         rect.setAttribute("height", size);
-        rect.setAttribute("stroke-width", uiSize(2));
+        rect.setAttribute("stroke-width", uiSize(2.6));
         rect.addEventListener("pointerdown", startResizeDrag);
         refs.handleLayer.appendChild(rect);
       });
@@ -2201,8 +2201,8 @@
         if (isSelectedAnchor(anchor)) circle.classList.add("selected");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", uiSize(anchor.role === "control" ? 4 : 5));
-        circle.setAttribute("stroke-width", uiSize(2));
+        circle.setAttribute("r", uiSize(anchor.role === "control" ? 6 : 7));
+        circle.setAttribute("stroke-width", uiSize(2.6));
         circle.addEventListener("pointerdown", startAnchorDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2221,7 +2221,7 @@
         line.setAttribute("y1", anchorPoint.y);
         line.setAttribute("x2", handlePoint.x);
         line.setAttribute("y2", handlePoint.y);
-        line.setAttribute("stroke-width", uiSize(1));
+        line.setAttribute("stroke-width", uiSize(1.4));
         refs.anchorLayer.appendChild(line);
 
         const circle = document.createElementNS(NS, "circle");
@@ -2231,8 +2231,8 @@
         circle.setAttribute("data-y-token-index", handle.yTokenIndex);
         circle.setAttribute("cx", handlePoint.x);
         circle.setAttribute("cy", handlePoint.y);
-        circle.setAttribute("r", uiSize(4));
-        circle.setAttribute("stroke-width", uiSize(2));
+        circle.setAttribute("r", uiSize(6));
+        circle.setAttribute("stroke-width", uiSize(2.6));
         circle.addEventListener("pointerdown", startBezierHandleDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2307,7 +2307,9 @@
     }
 
     function uiSize(value) {
-      return value / Math.max(state.zoom || 1, 0.001);
+      const zoom = Math.max(state.zoom || 1, 0.001);
+      const growth = Math.min(2.4, Math.max(1, 1 + Math.log2(Math.max(zoom, 1)) * 0.12));
+      return value * growth / zoom;
     }
 
     function startAnchorDrag(event) {
