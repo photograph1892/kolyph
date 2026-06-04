@@ -2077,6 +2077,7 @@
 
     function updateResizeHandles(box) {
       refs.handleLayer.innerHTML = "";
+      const size = uiSize(10);
       const handles = [
         ["nw", box.x, box.y],
         ["n", box.x + box.width / 2, box.y],
@@ -2092,10 +2093,11 @@
         const rect = document.createElementNS(NS, "rect");
         rect.setAttribute("class", "resize-handle");
         rect.setAttribute("data-handle", name);
-        rect.setAttribute("x", x - 5);
-        rect.setAttribute("y", y - 5);
-        rect.setAttribute("width", 10);
-        rect.setAttribute("height", 10);
+        rect.setAttribute("x", x - size / 2);
+        rect.setAttribute("y", y - size / 2);
+        rect.setAttribute("width", size);
+        rect.setAttribute("height", size);
+        rect.setAttribute("stroke-width", uiSize(2));
         rect.addEventListener("pointerdown", startResizeDrag);
         refs.handleLayer.appendChild(rect);
       });
@@ -2199,7 +2201,8 @@
         if (isSelectedAnchor(anchor)) circle.classList.add("selected");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", anchor.role === "control" ? 4 : 5);
+        circle.setAttribute("r", uiSize(anchor.role === "control" ? 4 : 5));
+        circle.setAttribute("stroke-width", uiSize(2));
         circle.addEventListener("pointerdown", startAnchorDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2218,6 +2221,7 @@
         line.setAttribute("y1", anchorPoint.y);
         line.setAttribute("x2", handlePoint.x);
         line.setAttribute("y2", handlePoint.y);
+        line.setAttribute("stroke-width", uiSize(1));
         refs.anchorLayer.appendChild(line);
 
         const circle = document.createElementNS(NS, "circle");
@@ -2227,7 +2231,8 @@
         circle.setAttribute("data-y-token-index", handle.yTokenIndex);
         circle.setAttribute("cx", handlePoint.x);
         circle.setAttribute("cy", handlePoint.y);
-        circle.setAttribute("r", 4);
+        circle.setAttribute("r", uiSize(4));
+        circle.setAttribute("stroke-width", uiSize(2));
         circle.addEventListener("pointerdown", startBezierHandleDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2259,10 +2264,31 @@
       if (event.shiftKey) {
         local = constrainPointFromStart(bezierHandleDrag.startLocal, local);
       }
-      element.markup = movePathTokenPoint(bezierHandleDrag.elementStartMarkup, bezierHandleDrag.pathIndex, bezierHandleDrag.tokenIndex, bezierHandleDrag.yTokenIndex, local.x, local.y);
+      let markup = movePathTokenPoint(bezierHandleDrag.elementStartMarkup, bezierHandleDrag.pathIndex, bezierHandleDrag.tokenIndex, bezierHandleDrag.yTokenIndex, local.x, local.y);
+      if (!event.altKey) {
+        markup = moveOppositeBezierHandle(markup, bezierHandleDrag, local);
+      }
+      element.markup = markup;
       renderEditor();
       renderInspector();
       renderElements();
+    }
+
+    function moveOppositeBezierHandle(markup, dragInfo, movedHandle) {
+      if (!selectedAnchorRef) return markup;
+      const data = getBezierDataForAnchor(markup, selectedAnchorRef);
+      if (!data || !data.anchor) return markup;
+      const draggedKey = dragInfo.tokenIndex + ":" + dragInfo.yTokenIndex;
+      const inKey = data.inHandle ? data.inHandle.tokenIndex + ":" + data.inHandle.yTokenIndex : "";
+      const outKey = data.outHandle ? data.outHandle.tokenIndex + ":" + data.outHandle.yTokenIndex : "";
+      const opposite = draggedKey === inKey ? data.outHandle : draggedKey === outKey ? data.inHandle : null;
+      if (!opposite) return markup;
+
+      const reflected = {
+        x: data.anchor.x * 2 - movedHandle.x,
+        y: data.anchor.y * 2 - movedHandle.y
+      };
+      return movePathTokenPoint(markup, selectedAnchorRef.pathIndex, opposite.tokenIndex, opposite.yTokenIndex, reflected.x, reflected.y);
     }
 
     function constrainPointFromStart(start, point) {
@@ -2278,6 +2304,10 @@
         x: start.x + Math.cos(snapped) * distance,
         y: start.y + Math.sin(snapped) * distance
       };
+    }
+
+    function uiSize(value) {
+      return value / Math.max(state.zoom || 1, 0.001);
     }
 
     function startAnchorDrag(event) {
