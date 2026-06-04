@@ -876,6 +876,9 @@
     const BOARD_GAP = 120;
     const BOARD_STEP = BOARD_SIZE + BOARD_GAP;
     const BOARD_COLUMNS = 4;
+    const WORKSPACE_MIN = -1000000;
+    const WORKSPACE_MAX = 1000000;
+    const DEFAULT_VIEWBOX = { x: -2400, y: -2400, width: 8000, height: 8000 };
     const IS_MAC = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
     const PRIMARY_MOD_LABEL = IS_MAC ? "Cmd" : "Ctrl";
 
@@ -1031,6 +1034,7 @@
     }
 
     function renderAll() {
+      updateWorkspaceViewBox();
       renderGlyphGrid();
       renderEditor();
       renderInspector();
@@ -1628,11 +1632,11 @@
       if (axis === "x") {
         line.setAttribute("x1", value);
         line.setAttribute("x2", value);
-        line.setAttribute("y1", -2400);
-        line.setAttribute("y2", 5600);
+        line.setAttribute("y1", WORKSPACE_MIN);
+        line.setAttribute("y2", WORKSPACE_MAX);
       } else {
-        line.setAttribute("x1", -2400);
-        line.setAttribute("x2", 5600);
+        line.setAttribute("x1", WORKSPACE_MIN);
+        line.setAttribute("x2", WORKSPACE_MAX);
         line.setAttribute("y1", value);
         line.setAttribute("y2", value);
       }
@@ -2007,6 +2011,25 @@
 
     function activeBoardOffset() {
       return glyphBoardOffset(state.activeGlyphId);
+    }
+
+    function updateWorkspaceViewBox() {
+      let minX = DEFAULT_VIEWBOX.x;
+      let minY = DEFAULT_VIEWBOX.y;
+      let maxX = DEFAULT_VIEWBOX.x + DEFAULT_VIEWBOX.width;
+      let maxY = DEFAULT_VIEWBOX.y + DEFAULT_VIEWBOX.height;
+      state.glyphs.forEach(glyph => {
+        const pos = glyphBoardOffset(glyph.id);
+        minX = Math.min(minX, pos.x - 1800);
+        minY = Math.min(minY, pos.y - 1800);
+        maxX = Math.max(maxX, pos.x + BOARD_SIZE + 1800);
+        maxY = Math.max(maxY, pos.y + BOARD_SIZE + 1800);
+      });
+      minX = Math.max(WORKSPACE_MIN, minX);
+      minY = Math.max(WORKSPACE_MIN, minY);
+      maxX = Math.min(WORKSPACE_MAX, maxX);
+      maxY = Math.min(WORKSPACE_MAX, maxY);
+      refs.editorSvg.setAttribute("viewBox", `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
     }
 
     function updateSelectionBox() {
@@ -3194,8 +3217,8 @@
         line.setAttribute("data-guide-id", guide.id);
         if (guide.axis === "x") {
           [hitLine, line].forEach(item => {
-            item.setAttribute("x1", -2400);
-            item.setAttribute("x2", 5600);
+            item.setAttribute("x1", WORKSPACE_MIN);
+            item.setAttribute("x2", WORKSPACE_MAX);
             item.setAttribute("y1", guide.value);
             item.setAttribute("y2", guide.value);
           });
@@ -3203,8 +3226,8 @@
           [hitLine, line].forEach(item => {
             item.setAttribute("x1", guide.value);
             item.setAttribute("x2", guide.value);
-            item.setAttribute("y1", -2400);
-            item.setAttribute("y2", 5600);
+            item.setAttribute("y1", WORKSPACE_MIN);
+            item.setAttribute("y2", WORKSPACE_MAX);
           });
         }
         hitLine.addEventListener("pointerdown", event => {
