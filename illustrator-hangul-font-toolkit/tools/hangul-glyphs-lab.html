@@ -2170,7 +2170,7 @@
     }
 
     function updateResizeHandles(box) {
-      const size = uiSize(30);
+      const size = uiSize(44);
       const handles = [
         ["nw", box.x, box.y],
         ["n", box.x + box.width / 2, box.y],
@@ -2294,8 +2294,8 @@
         if (isSelectedAnchor(anchor)) circle.classList.add("selected");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", uiSize(anchor.role === "control" ? 14 : 15));
-        circle.setAttribute("stroke-width", 3);
+        circle.setAttribute("r", uiSize(anchor.role === "control" ? 22 : 24));
+        circle.setAttribute("stroke-width", 4);
         circle.addEventListener("pointerdown", startAnchorDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2314,7 +2314,7 @@
         line.setAttribute("y1", anchorPoint.y);
         line.setAttribute("x2", handlePoint.x);
         line.setAttribute("y2", handlePoint.y);
-        line.setAttribute("stroke-width", 2.2);
+        line.setAttribute("stroke-width", 3);
         refs.anchorLayer.appendChild(line);
 
         const circle = document.createElementNS(NS, "circle");
@@ -2324,8 +2324,8 @@
         circle.setAttribute("data-y-token-index", handle.yTokenIndex);
         circle.setAttribute("cx", handlePoint.x);
         circle.setAttribute("cy", handlePoint.y);
-        circle.setAttribute("r", uiSize(14));
-        circle.setAttribute("stroke-width", 3);
+        circle.setAttribute("r", uiSize(22));
+        circle.setAttribute("stroke-width", 4);
         circle.addEventListener("pointerdown", startBezierHandleDrag);
         refs.anchorLayer.appendChild(circle);
       });
