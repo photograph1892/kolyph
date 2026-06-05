@@ -763,6 +763,10 @@
           <input id="backgroundGuidesToggle" type="checkbox" checked>
           <span>배경 글자 가이드 표시</span>
         </label>
+        <label class="check-row" for="userGuidesToggle">
+          <input id="userGuidesToggle" type="checkbox" checked>
+          <span>배치한 가이드라인 표시</span>
+        </label>
       </div>
 
       <div class="section">
@@ -943,6 +947,7 @@
     state.panY = state.panY || 0;
     state.rulersOn = state.rulersOn || false;
     state.backgroundGuidesVisible = state.backgroundGuidesVisible !== false;
+    state.userGuidesVisible = state.userGuidesVisible !== false;
     state.userGuides = state.userGuides || [];
     state.boardPosition = state.boardPosition || "center";
     state.font = state.font || { familyName: "HangulGlyphsLab", styleName: "Regular", formats: ["ttf"] };
@@ -996,6 +1001,7 @@
       fontStyleName: document.getElementById("fontStyleName"),
       fontFormats: document.getElementById("fontFormats"),
       backgroundGuidesToggle: document.getElementById("backgroundGuidesToggle"),
+      userGuidesToggle: document.getElementById("userGuidesToggle"),
       canvasContextMenu: document.getElementById("canvasContextMenu")
     };
 
@@ -1036,6 +1042,7 @@
     document.getElementById("copyPathDataBtn").addEventListener("click", copyPathData);
     document.getElementById("applyBezierBtn").addEventListener("click", applyBezierValues);
     refs.backgroundGuidesToggle.addEventListener("change", toggleBackgroundGuides);
+    refs.userGuidesToggle.addEventListener("change", toggleUserGuides);
 
     refs.glyphName.addEventListener("input", updateGlyphMeta);
     refs.advanceWidth.addEventListener("input", updateGlyphMeta);
@@ -1177,6 +1184,7 @@
       refs.advanceWidth.value = glyph.width;
       refs.glyphChar.value = glyph.char || "";
       refs.backgroundGuidesToggle.checked = state.backgroundGuidesVisible !== false;
+      refs.userGuidesToggle.checked = state.userGuidesVisible !== false;
 
       const element = activeElement();
       const disabled = !element;
@@ -2083,6 +2091,14 @@
       renderNeighborBoards();
       saveState();
       setStatus(state.backgroundGuidesVisible ? "배경 글자 가이드를 표시합니다." : "배경 글자 가이드를 숨겼습니다.");
+    }
+
+    function toggleUserGuides() {
+      state.userGuidesVisible = !!refs.userGuidesToggle.checked;
+      selectedGuideIds = state.userGuidesVisible ? selectedGuideIds : [];
+      renderUserGuides();
+      saveState();
+      setStatus(state.userGuidesVisible ? "배치한 가이드라인을 표시합니다." : "배치한 가이드라인을 숨겼습니다.");
     }
 
     function applyElementTransform(group, element, offset) {
@@ -3335,6 +3351,7 @@
         boardPosition: state.boardPosition,
         rulersOn: state.rulersOn,
         backgroundGuidesVisible: state.backgroundGuidesVisible,
+        userGuidesVisible: state.userGuidesVisible,
         selectedElementId,
         selectedElementIds,
         selectedGuideIds,
@@ -3356,6 +3373,7 @@
       state.boardPosition = restored.boardPosition || "center";
       state.rulersOn = !!restored.rulersOn;
       state.backgroundGuidesVisible = restored.backgroundGuidesVisible !== false;
+      state.userGuidesVisible = restored.userGuidesVisible !== false;
       selectedElementId = restored.selectedElementId || null;
       selectedElementIds = restored.selectedElementIds || (selectedElementId ? [selectedElementId] : []);
       selectedGuideIds = restored.selectedGuideIds || [];
@@ -3580,6 +3598,7 @@
 
     function renderUserGuides() {
       refs.userGuideLayer.innerHTML = "";
+      if (!state.userGuidesVisible) return;
       state.userGuides.forEach(guide => {
         if (!guide.id) guide.id = uid();
       });
