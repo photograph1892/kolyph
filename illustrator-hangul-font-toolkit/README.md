@@ -58,6 +58,12 @@
 - `마우스 휠`: 위/아래 이동
 - `Ctrl+마우스 휠`: 좌/우 이동
 
+## 프루프 자간 조정
+
+프루프 영역은 현재 글리프의 SVG 윤곽을 `폭` 값에 맞춰 나란히 표시합니다. 프루프에서 글자를 클릭한 뒤 `Shift+←`/`Shift+→`를 누르면 해당 글리프의 폭이 10 단위로 줄거나 늘어납니다. `Alt+Shift+←`/`Alt+Shift+→`는 1 단위로 미세 조정합니다.
+
+이 폭 값은 `폰트 빌드 JSON`의 `width`, `SVG 폰트`의 `horiz-adv-x`, 그리고 `tools/build_font.py`가 만드는 TTF/OTF/WOFF/WOFF2 horizontal metrics에 그대로 반영됩니다.
+
 ## 폰트 파일 내보내기
 
 1. `hangul-glyphs-lab.html`의 `폰트 내보내기` 영역에서 패밀리 이름, 스타일, 출력 형식을 선택합니다.

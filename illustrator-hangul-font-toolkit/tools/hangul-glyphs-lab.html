@@ -544,6 +544,44 @@
       white-space: nowrap;
     }
 
+    .proof-run {
+      display: flex;
+      align-items: flex-end;
+      min-height: 72px;
+    }
+
+    .proof-glyph {
+      position: relative;
+      flex: 0 0 auto;
+      height: 68px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .proof-glyph.active {
+      border-color: var(--accent);
+      background: rgba(15, 118, 110, .08);
+    }
+
+    .proof-glyph svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .proof-advance {
+      position: absolute;
+      right: 0;
+      top: 4px;
+      bottom: 4px;
+      border-right: 1px dashed rgba(15, 118, 110, .42);
+      pointer-events: none;
+    }
+
     .row {
       display: grid;
       grid-template-columns: 1fr 88px;
@@ -1012,6 +1050,7 @@
     let selectedBoardIds = [];
     let selectedComponentId = null;
     let selectedAnchorRef = null;
+    let selectedProofGlyphId = null;
     let drag = null;
     let resizeDrag = null;
     let anchorDrag = null;
@@ -1261,7 +1300,43 @@
     }
 
     function renderProof() {
-      refs.proofLine.textContent = state.glyphs.map(glyph => glyph.char || glyph.name).join(" ");
+      refs.proofLine.innerHTML = "";
+      if (selectedProofGlyphId && !state.glyphs.some(glyph => glyph.id === selectedProofGlyphId)) {
+        selectedProofGlyphId = null;
+      }
+      const run = document.createElement("div");
+      run.className = "proof-run";
+      state.glyphs.forEach(glyph => {
+        if (!glyph.char && !glyph.elements.length) return;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "proof-glyph" + (glyph.id === selectedProofGlyphId ? " active" : "");
+        button.style.width = proofAdvancePx(glyph) + "px";
+        button.title = `${glyph.char || glyph.name} / 폭 ${glyph.width || 1000}`;
+        button.innerHTML = makeProofGlyphSvg(glyph) + `<span class="proof-advance"></span>`;
+        button.addEventListener("click", () => selectProofGlyph(glyph.id));
+        run.appendChild(button);
+      });
+      refs.proofLine.appendChild(run);
+    }
+
+    function proofAdvancePx(glyph) {
+      return Math.max(18, Math.round((glyph.width || 1000) * 0.074));
+    }
+
+    function selectProofGlyph(glyphId) {
+      const glyph = state.glyphs.find(item => item.id === glyphId);
+      if (!glyph) return;
+      selectedProofGlyphId = glyph.id;
+      state.activeGlyphId = glyph.id;
+      selectedBoardId = glyph.id;
+      selectedBoardIds = [glyph.id];
+      selectedElementId = null;
+      selectedElementIds = [];
+      selectedGuideIds = [];
+      selectedAnchorRef = null;
+      renderAll();
+      setStatus(`프루프 선택: ${glyph.char || glyph.name}, 폭 ${glyph.width || 1000}. Shift+←/→로 자간을 조정합니다.`);
     }
 
     function addGlyph() {
@@ -1579,16 +1654,19 @@
         selectedElementIds = selectedElementIds.filter(item => item !== id);
         selectedElementId = selectedElementIds[selectedElementIds.length - 1] || null;
         selectedAnchorRef = null;
+        selectedProofGlyphId = null;
       } else if (event && event.shiftKey) {
         if (!selectedElementIds.includes(id)) selectedElementIds.push(id);
         selectedElementId = id;
         if (previous !== id) selectedAnchorRef = null;
+        selectedProofGlyphId = null;
       } else {
         selectedElementIds = [id];
         selectedGuideIds = [];
         selectedBoardId = null;
         selectedBoardIds = [];
         selectedElementId = id;
+        selectedProofGlyphId = null;
         if (previous !== id) selectedAnchorRef = null;
       }
       renderEditor();
@@ -1605,8 +1683,10 @@
       }
       if (event && isPrimaryShortcut(event)) {
         selectedGuideIds = selectedGuideIds.filter(item => item !== id);
+        selectedProofGlyphId = null;
       } else if (event && event.shiftKey) {
         if (!selectedGuideIds.includes(id)) selectedGuideIds.push(id);
+        selectedProofGlyphId = null;
       } else {
         selectedElementIds = [];
         selectedElementId = null;
@@ -1614,6 +1694,7 @@
         selectedBoardId = null;
         selectedBoardIds = [];
         selectedGuideIds = [id];
+        selectedProofGlyphId = null;
       }
       renderAll();
     }
@@ -1627,15 +1708,18 @@
       if (event && isPrimaryShortcut(event)) {
         selectedBoardIds = selectedBoardIds.filter(item => item !== id);
         selectedBoardId = selectedBoardIds[selectedBoardIds.length - 1] || null;
+        selectedProofGlyphId = null;
       } else if (event && event.shiftKey) {
         if (!selectedBoardIds.includes(id)) selectedBoardIds.push(id);
         selectedBoardId = id;
+        selectedProofGlyphId = null;
       } else {
         selectedElementIds = [];
         selectedElementId = null;
         selectedGuideIds = [];
         selectedBoardIds = [id];
         selectedBoardId = id;
+        selectedProofGlyphId = null;
       }
       selectedAnchorRef = null;
       renderAll();
@@ -1750,6 +1834,7 @@
       selectedBoardId = null;
       selectedBoardIds = [];
       selectedAnchorRef = null;
+      selectedProofGlyphId = null;
       renderEditor();
       renderInspector();
       renderElements();
@@ -1944,6 +2029,7 @@
 
     function handleKeydown(event) {
       if (handleEditorShortcut(event)) return;
+      if (handleProofKerningKey(event)) return;
       if (event.key === "Delete" || event.key === "Backspace") {
         if (selectedElementIds.length > 0 || selectedGuideIds.length > 0 || selectedBoardIds.length > 0) {
           event.preventDefault();
@@ -1964,6 +2050,30 @@
       if (event.key === "ArrowUp") element.ty -= step;
       if (event.key === "ArrowDown") element.ty += step;
       renderAll();
+    }
+
+    function handleProofKerningKey(event) {
+      if (!selectedProofGlyphId || !event.shiftKey) return false;
+      if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return false;
+      if (isTypingTarget(event.target)) return false;
+      const glyph = state.glyphs.find(item => item.id === selectedProofGlyphId);
+      if (!glyph) return false;
+      event.preventDefault();
+      pushHistory();
+      const step = event.altKey ? 1 : 10;
+      const delta = event.key === "ArrowLeft" ? -step : step;
+      glyph.width = clamp(Math.round((glyph.width || 1000) + delta), 120, 2400);
+      if (glyph.id === state.activeGlyphId) refs.advanceWidth.value = glyph.width;
+      renderGlyphGrid();
+      renderProof();
+      renderInspector();
+      saveState();
+      setStatus(`자간 조정: ${glyph.char || glyph.name} 폭 ${glyph.width}`);
+      return true;
+    }
+
+    function isTypingTarget(target) {
+      return target && target.closest && !!target.closest("input, textarea, select");
     }
 
     function updateLiveSelectedTransform() {
@@ -3282,6 +3392,17 @@
       return `<svg xmlns="${NS}" viewBox="0 0 1000 1000">${guides}<g id="${escapeAttr(glyph.name)}">${content}</g></svg>`;
     }
 
+    function makeProofGlyphSvg(glyph) {
+      const width = glyph.width || 1000;
+      const content = glyph.elements.map(element => {
+        const group = svgFromMarkup(element.markup);
+        applyElementTransform(group, element);
+        return new XMLSerializer().serializeToString(group);
+      }).join("");
+      const fallback = content ? "" : `<text x="500" y="610" text-anchor="middle" font-size="560" font-family="Arial, sans-serif">${escapeHtml(glyph.char || glyph.name)}</text>`;
+      return `<svg xmlns="${NS}" viewBox="0 0 ${width} 1000" aria-hidden="true"><line x1="0" y1="880" x2="${width}" y2="880" stroke="#d5534a" stroke-width="10" opacity=".18"/>${content || fallback}</svg>`;
+    }
+
     function svgFromMarkup(markup) {
       const wrapper = document.createElementNS(NS, "svg");
       wrapper.innerHTML = markup;
@@ -3408,7 +3529,8 @@
         selectedBoardId,
         selectedBoardIds,
         selectedComponentId,
-        selectedAnchorRef
+        selectedAnchorRef,
+        selectedProofGlyphId
       });
     }
 
@@ -3431,6 +3553,7 @@
       selectedBoardIds = restored.selectedBoardIds || (selectedBoardId ? [selectedBoardId] : []);
       selectedComponentId = restored.selectedComponentId || null;
       selectedAnchorRef = restored.selectedAnchorRef || null;
+      selectedProofGlyphId = restored.selectedProofGlyphId || null;
       renderAll();
     }
 
