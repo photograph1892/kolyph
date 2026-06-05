@@ -100,6 +100,7 @@ def svg_font_to_package(svg_text: str, fallback_name: str):
             "descent": descent,
             "baseline": ascent,
             "formats": ["ttf"],
+            "script": "Hangul",
         },
         "glyphs": glyphs,
         "components": [],
@@ -214,6 +215,7 @@ class FontPackageBuilder:
         )
         fb.setupPost()
         fb.setupCFF(self.ps_name, {"FullName": f"{self.family} {self.style}", "FamilyName": self.family}, charstrings, {})
+        self.apply_hangul_metadata(fb.font)
         path = out_dir / f"{self.ps_name}.otf"
         fb.save(path)
         return path
@@ -247,6 +249,7 @@ class FontPackageBuilder:
             usWinDescent=abs(self.descent),
         )
         fb.setupPost()
+        self.apply_hangul_metadata(fb.font)
         return fb.font
 
     def name_table(self):
@@ -276,6 +279,17 @@ class FontPackageBuilder:
                     self.parse_path(path_data, pen)
                 except Exception as exc:
                     print(f"경고: {glyph.get('name')} path를 건너뜀: {exc}", file=sys.stderr)
+
+    def apply_hangul_metadata(self, font):
+        os2 = font.get("OS/2")
+        if os2 is None:
+            return
+        # OS/2 Unicode range bits: 28 Hangul Jamo, 56 Compatibility Jamo, 59 Hangul Syllables.
+        os2.ulUnicodeRange1 = getattr(os2, "ulUnicodeRange1", 0) | (1 << 28)
+        os2.ulUnicodeRange2 = getattr(os2, "ulUnicodeRange2", 0) | (1 << (56 - 32)) | (1 << (59 - 32))
+        # Code page bits: 19 Korean Wansung, 21 Korean Johab.
+        os2.ulCodePageRange1 = getattr(os2, "ulCodePageRange1", 0) | (1 << 19) | (1 << 21)
+        os2.ulCodePageRange2 = getattr(os2, "ulCodePageRange2", 0)
 
 
 def extract_path_data(markup: str):

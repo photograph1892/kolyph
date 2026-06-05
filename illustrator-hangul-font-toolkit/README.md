@@ -66,7 +66,7 @@
 
 ## 폰트 파일 내보내기
 
-1. `hangul-glyphs-lab.html`의 `폰트 내보내기` 영역에서 패밀리 이름, 스타일, 출력 형식을 선택합니다.
+1. `hangul-glyphs-lab.html`의 `폰트 내보내기` 영역에서 패밀리 이름, 스타일, 출력 형식, 자동 좌우 여백을 선택합니다.
 2. 상단의 `SVG 폰트`를 누르면 `<font>`/`<glyph>` 구조의 SVG Font 파일을 바로 저장할 수 있습니다.
 3. TTF/OTF/WOFF/WOFF2까지 빌드하려면 `SVG 폰트` 파일 또는 상단의 `폰트 빌드 JSON` 파일을 저장합니다.
 4. 최초 1회만 폰트 빌드 의존성을 설치합니다.
@@ -81,6 +81,8 @@ python -m pip install -r tools/requirements-font-export.txt
 python tools/build_font.py HangulGlyphsLab-Regular.svg -o dist-font -f ttf otf woff woff2
 python tools/build_font.py HangulGlyphsLab-font-package.json -o dist-font -f ttf otf woff woff2
 ```
+
+`자동 좌우 여백`을 켜면 내보내기 직전에 각 글리프의 실제 path bbox를 기준으로 왼쪽/오른쪽 여백을 다시 계산합니다. 원본 아트보드 작업은 바꾸지 않고, export용 path와 advance width만 정규화합니다.
 
 `SVG 폰트` 내보내기는 현재 작업 중인 글리프의 path 데이터를 폰트 좌표계로 뒤집어 각 `<glyph d="...">`에 넣습니다. 외부 변환 도구에 넘길 수도 있고, `tools/build_font.py`에 바로 넣어 TTF/OTF/WOFF/WOFF2로 빌드할 수도 있습니다. 편집 상태 전체를 보존하는 용도는 `프로젝트 JSON`이 더 안전합니다.
 
