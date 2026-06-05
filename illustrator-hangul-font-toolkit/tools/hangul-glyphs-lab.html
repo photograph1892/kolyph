@@ -3321,7 +3321,7 @@
     function exportCurrentGlyph() {
       const glyph = activeGlyph();
       if (!glyph) return;
-      download(`${glyph.name}.svg`, makeGlyphSvg(glyph, false), "image/svg+xml");
+      download(`${safeDownloadName(glyph.name || "glyph")}.svg`, makeGlyphSvg(glyph, false), "image/svg+xml");
     }
 
     function exportProject() {
@@ -3348,7 +3348,7 @@
         glyphs: exportGlyphs.map(item => item.record),
         components: state.components || []
       };
-      const familySlug = (fontPackage.font.familyName || "HangulGlyphsLab").replace(/[^\w.-]+/g, "-");
+      const familySlug = safeDownloadName(fontPackage.font.familyName || "HangulGlyphsLab");
       download(`${familySlug}-font-package.json`, JSON.stringify(fontPackage, null, 2), "application/json");
     }
 
@@ -3356,7 +3356,8 @@
       updateFontMeta();
       const familyName = state.font.familyName || "HangulGlyphsLab";
       const styleName = state.font.styleName || "Regular";
-      const fontId = `${familyName}-${styleName}`.replace(/[^\w.-]+/g, "-");
+      const fontId = safeSvgId(`${familyName}-${styleName}`);
+      const fontFileName = safeDownloadName(`${familyName}-${styleName}`);
       const glyphs = exportGlyphRecordsWithSpace()
         .filter(item => item.record.char)
         .map(item => {
@@ -3382,7 +3383,7 @@
     </font>
   </defs>
 </svg>`;
-      download(`${fontId}.svg`, svgFont, "image/svg+xml");
+      download(`${fontFileName}.svg`, svgFont, "image/svg+xml");
     }
 
     function fontPackageGlyphRecord(glyph) {
@@ -3601,6 +3602,20 @@
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    }
+
+    function safeDownloadName(name) {
+      return String(name || "font")
+        .normalize("NFC")
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/^\.+|\.+$/g, "")
+        || "font";
+    }
+
+    function safeSvgId(name) {
+      return safeDownloadName(name).replace(/\s+/g, "-");
     }
 
     function setStatus(message) {

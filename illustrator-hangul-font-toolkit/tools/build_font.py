@@ -160,6 +160,7 @@ class FontPackageBuilder:
         self.family = clean_name(self.meta.get("familyName") or "HangulGlyphsLab")
         self.style = clean_name(self.meta.get("styleName") or "Regular")
         self.ps_name = re.sub(r"[^A-Za-z0-9-]", "", f"{self.family}-{self.style}") or "HangulGlyphsLab-Regular"
+        self.file_stem = safe_filename(f"{self.family}-{self.style}") or self.ps_name
         self.glyph_records = self._glyph_records()
 
     def _glyph_records(self):
@@ -181,7 +182,7 @@ class FontPackageBuilder:
             font = copy_font(ttf)
             font.flavor = None if fmt == "ttf" else fmt
             suffix = ".ttf" if fmt == "ttf" else f".{fmt}"
-            path = out_dir / f"{self.ps_name}{suffix}"
+            path = out_dir / f"{self.file_stem}{suffix}"
             font.save(path)
             outputs.append(path)
         return outputs
@@ -216,7 +217,7 @@ class FontPackageBuilder:
         fb.setupPost()
         fb.setupCFF(self.ps_name, {"FullName": f"{self.family} {self.style}", "FamilyName": self.family}, charstrings, {})
         self.apply_hangul_metadata(fb.font)
-        path = out_dir / f"{self.ps_name}.otf"
+        path = out_dir / f"{self.file_stem}.otf"
         fb.save(path)
         return path
 
@@ -329,6 +330,10 @@ def element_transform(element, baseline):
 
 def clean_name(value):
     return re.sub(r"\s+", " ", str(value)).strip() or "Untitled"
+
+
+def safe_filename(value):
+    return re.sub(r'[\\/:*?"<>|]+', "-", clean_name(value)).strip(" .")
 
 
 def make_glyph_name(name, char, used):
