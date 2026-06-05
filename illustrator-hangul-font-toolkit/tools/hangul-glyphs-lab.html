@@ -966,6 +966,7 @@
     let selectedElementIds = [];
     let selectedGuideIds = [];
     let selectedBoardId = null;
+    let selectedBoardIds = [];
     let selectedComponentId = null;
     let selectedAnchorRef = null;
     let drag = null;
@@ -1067,7 +1068,9 @@
           state.activeGlyphId = glyph.id;
           selectedElementId = null;
           selectedElementIds = [];
+          selectedGuideIds = [];
           selectedBoardId = glyph.id;
+          selectedBoardIds = [glyph.id];
           selectedAnchorRef = null;
           renderAll();
         });
@@ -1093,6 +1096,8 @@
       const glyph = activeGlyph();
       selectedElementIds = glyph ? selectedElementIds.filter(id => glyph.elements.some(item => item.id === id)) : [];
       selectedElementId = selectedElementIds.includes(selectedElementId) ? selectedElementId : (selectedElementIds[0] || null);
+      selectedBoardIds = selectedBoardIds.filter(id => state.glyphs.some(item => item.id === id));
+      selectedBoardId = selectedBoardIds.includes(selectedBoardId) ? selectedBoardId : (selectedBoardIds[0] || null);
       refs.backgroundGlyphGuide.textContent = glyph && glyph.char ? glyph.char : "";
       if (!state.glyphs.length) return;
 
@@ -1237,6 +1242,7 @@
       selectedElementIds = [];
       selectedGuideIds = [];
       selectedBoardId = glyph.id;
+      selectedBoardIds = [glyph.id];
       selectedAnchorRef = null;
       renderAll();
     }
@@ -1336,6 +1342,7 @@
       selectedElementIds = [selectedElementId];
       selectedGuideIds = [];
       selectedBoardId = null;
+      selectedBoardIds = [];
       renderAll();
     }
 
@@ -1460,6 +1467,7 @@
       selectedElementIds = [element.id];
       selectedGuideIds = [];
       selectedBoardId = null;
+      selectedBoardIds = [];
       renderAll();
     }
 
@@ -1478,6 +1486,7 @@
       selectedElementIds = [copy.id];
       selectedGuideIds = [];
       selectedBoardId = null;
+      selectedBoardIds = [];
       renderAll();
     }
 
@@ -1485,16 +1494,30 @@
       const glyph = activeGlyph();
       const hasElementSelection = glyph && selectedElementIds.length > 0;
       const hasGuideSelection = selectedGuideIds.length > 0;
-      if (!hasElementSelection && !hasGuideSelection) return;
+      const hasBoardSelection = selectedBoardIds.length > 0;
+      if (!hasElementSelection && !hasGuideSelection && !hasBoardSelection) return;
       pushHistory();
       if (glyph) {
         glyph.elements = glyph.elements.filter(element => element.locked || !selectedElementIds.includes(element.id));
       }
       state.userGuides = state.userGuides.filter(guide => guide.locked || !selectedGuideIds.includes(guide.id));
+      if (hasBoardSelection && state.glyphs.length > 1) {
+        const selectedUnlockedBoards = selectedBoardIds.filter(id => {
+          const board = state.glyphs.find(item => item.id === id);
+          return board && !board.boardLocked;
+        });
+        const maxDelete = Math.max(0, state.glyphs.length - 1);
+        const deleteIds = selectedUnlockedBoards.slice(0, maxDelete);
+        state.glyphs = state.glyphs.filter(item => !deleteIds.includes(item.id));
+        if (!state.glyphs.some(item => item.id === state.activeGlyphId)) {
+          state.activeGlyphId = state.glyphs[0] ? state.glyphs[0].id : null;
+        }
+      }
       selectedElementId = null;
       selectedElementIds = [];
       selectedGuideIds = [];
       selectedBoardId = null;
+      selectedBoardIds = [];
       selectedAnchorRef = null;
       renderAll();
     }
@@ -1505,7 +1528,6 @@
         clearSelection();
         return;
       }
-      selectedBoardId = null;
       if (event && isPrimaryShortcut(event)) {
         selectedElementIds = selectedElementIds.filter(item => item !== id);
         selectedElementId = selectedElementIds[selectedElementIds.length - 1] || null;
@@ -1513,18 +1535,20 @@
       } else if (event && event.shiftKey) {
         if (!selectedElementIds.includes(id)) selectedElementIds.push(id);
         selectedElementId = id;
-        selectedBoardId = null;
         if (previous !== id) selectedAnchorRef = null;
       } else {
         selectedElementIds = [id];
         selectedGuideIds = [];
         selectedBoardId = null;
+        selectedBoardIds = [];
         selectedElementId = id;
         if (previous !== id) selectedAnchorRef = null;
       }
       renderEditor();
       renderInspector();
       renderElements();
+      renderNeighborBoards();
+      renderUserGuides();
     }
 
     function selectGuide(id, event) {
@@ -1532,32 +1556,40 @@
         clearSelection();
         return;
       }
-      selectedBoardId = null;
       if (event && isPrimaryShortcut(event)) {
         selectedGuideIds = selectedGuideIds.filter(item => item !== id);
       } else if (event && event.shiftKey) {
         if (!selectedGuideIds.includes(id)) selectedGuideIds.push(id);
-        selectedBoardId = null;
       } else {
         selectedElementIds = [];
         selectedElementId = null;
         selectedAnchorRef = null;
         selectedBoardId = null;
+        selectedBoardIds = [];
         selectedGuideIds = [id];
       }
       renderAll();
     }
 
-    function selectBoard(id) {
+    function selectBoard(id, event) {
       if (!id) {
         clearSelection();
         return;
       }
       state.activeGlyphId = id;
-      selectedElementIds = [];
-      selectedElementId = null;
-      selectedGuideIds = [];
-      selectedBoardId = id;
+      if (event && isPrimaryShortcut(event)) {
+        selectedBoardIds = selectedBoardIds.filter(item => item !== id);
+        selectedBoardId = selectedBoardIds[selectedBoardIds.length - 1] || null;
+      } else if (event && event.shiftKey) {
+        if (!selectedBoardIds.includes(id)) selectedBoardIds.push(id);
+        selectedBoardId = id;
+      } else {
+        selectedElementIds = [];
+        selectedElementId = null;
+        selectedGuideIds = [];
+        selectedBoardIds = [id];
+        selectedBoardId = id;
+      }
       selectedAnchorRef = null;
       renderAll();
     }
@@ -1575,8 +1607,14 @@
         start: point,
         baseX: glyph.boardX || 0,
         baseY: glyph.boardY || 0,
+        items: state.glyphs
+          .filter(item => selectedBoardIds.includes(item.id) && !item.boardLocked)
+          .map(item => ({ id: item.id, baseX: item.boardX || 0, baseY: item.boardY || 0 })),
         moved: false
       };
+      if (!boardDrag.items.some(item => item.id === glyphId)) {
+        boardDrag.items.push({ id: glyphId, baseX: glyph.boardX || 0, baseY: glyph.boardY || 0 });
+      }
       refs.editorSvg.setPointerCapture(event.pointerId);
     }
 
@@ -1593,8 +1631,14 @@
         boardDrag.moved = true;
       }
       const snapped = snapBoardPosition(boardDrag.glyphId, boardDrag.baseX + dx, boardDrag.baseY + dy);
-      glyph.boardX = snapped.x;
-      glyph.boardY = snapped.y;
+      const snapDx = snapped.x - boardDrag.baseX;
+      const snapDy = snapped.y - boardDrag.baseY;
+      boardDrag.items.forEach(item => {
+        const board = state.glyphs.find(glyph => glyph.id === item.id);
+        if (!board || board.boardLocked) return;
+        board.boardX = item.baseX + snapDx;
+        board.boardY = item.baseY + snapDy;
+      });
       renderAll();
     }
 
@@ -1657,10 +1701,12 @@
       selectedElementId = null;
       selectedGuideIds = [];
       selectedBoardId = null;
+      selectedBoardIds = [];
       selectedAnchorRef = null;
       renderEditor();
       renderInspector();
       renderElements();
+      renderNeighborBoards();
       renderUserGuides();
     }
 
@@ -1672,6 +1718,8 @@
         state.activeGlyphId = glyphId;
         selectedElementIds = [];
         selectedGuideIds = [];
+        selectedBoardIds = [];
+        selectedBoardId = null;
         selectedAnchorRef = null;
       }
       const glyph = activeGlyph();
@@ -1806,20 +1854,41 @@
         selectElement(null);
       } else {
         const glyph = activeGlyph();
-        const hits = glyph ? glyph.elements.filter(element => {
+        const elementHits = glyph ? glyph.elements.filter(element => {
           const bounds = measureElementBounds(element.id);
           return bounds && rectIntersects(box, bounds);
         }).map(element => element.id) : [];
+        const guideHits = state.userGuides
+          .filter(guide => guideIntersectsRect(guide, box))
+          .map(guide => guide.id);
+        const boardHits = state.glyphs
+          .filter(board => rectIntersects(box, {
+            ...glyphBoardOffset(board.id),
+            width: BOARD_SIZE,
+            height: BOARD_SIZE
+          }))
+          .map(board => board.id);
         if (marqueeDrag.ctrl) {
-          selectedElementIds = selectedElementIds.filter(id => !hits.includes(id));
+          selectedElementIds = selectedElementIds.filter(id => !elementHits.includes(id));
+          selectedGuideIds = selectedGuideIds.filter(id => !guideHits.includes(id));
+          selectedBoardIds = selectedBoardIds.filter(id => !boardHits.includes(id));
         } else if (marqueeDrag.shift) {
-          hits.forEach(id => {
+          elementHits.forEach(id => {
             if (!selectedElementIds.includes(id)) selectedElementIds.push(id);
           });
+          guideHits.forEach(id => {
+            if (!selectedGuideIds.includes(id)) selectedGuideIds.push(id);
+          });
+          boardHits.forEach(id => {
+            if (!selectedBoardIds.includes(id)) selectedBoardIds.push(id);
+          });
         } else {
-          selectedElementIds = hits;
+          selectedElementIds = elementHits;
+          selectedGuideIds = guideHits;
+          selectedBoardIds = boardHits;
         }
         selectedElementId = selectedElementIds[selectedElementIds.length - 1] || null;
+        selectedBoardId = selectedBoardIds[selectedBoardIds.length - 1] || null;
         selectedAnchorRef = null;
         renderAll();
       }
@@ -1829,7 +1898,7 @@
     function handleKeydown(event) {
       if (handleEditorShortcut(event)) return;
       if (event.key === "Delete" || event.key === "Backspace") {
-        if (selectedElementIds.length > 0 || selectedGuideIds.length > 0) {
+        if (selectedElementIds.length > 0 || selectedGuideIds.length > 0 || selectedBoardIds.length > 0) {
           event.preventDefault();
           deleteSelected();
         }
@@ -2072,7 +2141,7 @@
       rect.setAttribute("y", box.y);
       rect.setAttribute("width", box.width);
       rect.setAttribute("height", box.height);
-      rect.setAttribute("stroke-width", uiSize(active ? 2.8 : 2.2));
+      rect.setAttribute("stroke-width", active ? 2.8 : 2.2);
       refs.handleLayer.appendChild(rect);
     }
 
@@ -2091,7 +2160,7 @@
           node.removeAttribute("fill");
           node.setAttribute("fill", "none");
           node.setAttribute("stroke", item.id === selectedElementId ? "#e11d48" : "#0f766e");
-          node.setAttribute("stroke-width", uiSize(item.id === selectedElementId ? 2.4 : 2));
+          node.setAttribute("stroke-width", item.id === selectedElementId ? 2.4 : 2);
           node.setAttribute("vector-effect", "non-scaling-stroke");
           node.setAttribute("pointer-events", "none");
         });
@@ -2101,7 +2170,7 @@
     }
 
     function updateResizeHandles(box) {
-      const size = uiSize(24);
+      const size = uiSize(30);
       const handles = [
         ["nw", box.x, box.y],
         ["n", box.x + box.width / 2, box.y],
@@ -2121,7 +2190,7 @@
         rect.setAttribute("y", y - size / 2);
         rect.setAttribute("width", size);
         rect.setAttribute("height", size);
-        rect.setAttribute("stroke-width", uiSize(3.2));
+        rect.setAttribute("stroke-width", 3);
         rect.addEventListener("pointerdown", startResizeDrag);
         refs.handleLayer.appendChild(rect);
       });
@@ -2225,8 +2294,8 @@
         if (isSelectedAnchor(anchor)) circle.classList.add("selected");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", uiSize(anchor.role === "control" ? 10 : 11));
-        circle.setAttribute("stroke-width", uiSize(3.2));
+        circle.setAttribute("r", uiSize(anchor.role === "control" ? 14 : 15));
+        circle.setAttribute("stroke-width", 3);
         circle.addEventListener("pointerdown", startAnchorDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2245,7 +2314,7 @@
         line.setAttribute("y1", anchorPoint.y);
         line.setAttribute("x2", handlePoint.x);
         line.setAttribute("y2", handlePoint.y);
-        line.setAttribute("stroke-width", uiSize(2));
+        line.setAttribute("stroke-width", 2.2);
         refs.anchorLayer.appendChild(line);
 
         const circle = document.createElementNS(NS, "circle");
@@ -2255,8 +2324,8 @@
         circle.setAttribute("data-y-token-index", handle.yTokenIndex);
         circle.setAttribute("cx", handlePoint.x);
         circle.setAttribute("cy", handlePoint.y);
-        circle.setAttribute("r", uiSize(10));
-        circle.setAttribute("stroke-width", uiSize(3.2));
+        circle.setAttribute("r", uiSize(14));
+        circle.setAttribute("stroke-width", 3);
         circle.addEventListener("pointerdown", startBezierHandleDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2332,9 +2401,7 @@
 
     function uiSize(value) {
       const zoom = Math.max(state.zoom || 1, 0.001);
-      const zoomIn = Math.max(zoom, 1);
-      const screenSize = Math.max(value * 0.58, value * 1.45 / Math.pow(zoomIn, 0.34));
-      return screenSize / zoom;
+      return value / zoom;
     }
 
     function startAnchorDrag(event) {
@@ -2503,6 +2570,12 @@
         a.x + a.width >= b.x &&
         a.y <= b.y + b.height &&
         a.y + a.height >= b.y;
+    }
+
+    function guideIntersectsRect(guide, rect) {
+      if (!guide) return false;
+      if (guide.axis === "x") return guide.value >= rect.y && guide.value <= rect.y + rect.height;
+      return guide.value >= rect.x && guide.value <= rect.x + rect.width;
     }
 
     function measureElementBounds(elementId) {
@@ -3184,6 +3257,7 @@
         selectedElementIds,
         selectedGuideIds,
         selectedBoardId,
+        selectedBoardIds,
         selectedComponentId,
         selectedAnchorRef
       });
@@ -3203,6 +3277,7 @@
       selectedElementIds = restored.selectedElementIds || (selectedElementId ? [selectedElementId] : []);
       selectedGuideIds = restored.selectedGuideIds || [];
       selectedBoardId = restored.selectedBoardId || null;
+      selectedBoardIds = restored.selectedBoardIds || (selectedBoardId ? [selectedBoardId] : []);
       selectedComponentId = restored.selectedComponentId || null;
       selectedAnchorRef = restored.selectedAnchorRef || null;
       renderAll();
@@ -3334,8 +3409,8 @@
       const glyph = activeGlyph();
       const hasElementSelection = glyph && selectedElementIds.length > 0;
       const hasGuideSelection = selectedGuideIds.length > 0;
-      const board = state.glyphs.find(item => item.id === selectedBoardId);
-      const hasBoardSelection = !!board;
+      const boards = state.glyphs.filter(item => selectedBoardIds.includes(item.id));
+      const hasBoardSelection = boards.length > 0;
       if (!hasElementSelection && !hasGuideSelection && !hasBoardSelection) return;
       pushHistory();
       if (glyph) {
@@ -3346,7 +3421,9 @@
       state.userGuides.forEach(guide => {
         if (selectedGuideIds.includes(guide.id)) guide.locked = true;
       });
-      if (board) board.boardLocked = true;
+      boards.forEach(board => {
+        board.boardLocked = true;
+      });
       renderAll();
       setStatus("선택한 개체/가이드/아트보드를 잠갔습니다.");
     }
@@ -3355,8 +3432,8 @@
       const glyph = activeGlyph();
       const hasElementSelection = glyph && selectedElementIds.length > 0;
       const hasGuideSelection = selectedGuideIds.length > 0;
-      const board = state.glyphs.find(item => item.id === selectedBoardId);
-      const hasBoardSelection = !!board;
+      const boards = state.glyphs.filter(item => selectedBoardIds.includes(item.id));
+      const hasBoardSelection = boards.length > 0;
       if (!hasElementSelection && !hasGuideSelection && !hasBoardSelection) return;
       pushHistory();
       if (glyph) {
@@ -3367,7 +3444,9 @@
       state.userGuides.forEach(guide => {
         if (selectedGuideIds.includes(guide.id)) guide.locked = false;
       });
-      if (board) board.boardLocked = false;
+      boards.forEach(board => {
+        board.boardLocked = false;
+      });
       renderAll();
       setStatus("선택한 개체/가이드/아트보드 잠금을 해제했습니다.");
     }
@@ -3380,7 +3459,7 @@
         rect.setAttribute("class", [
           "neighbor-board",
           glyph.id === state.activeGlyphId ? "active-slot" : "",
-          glyph.id === selectedBoardId ? "selected-board" : "",
+          selectedBoardIds.includes(glyph.id) ? "selected-board" : "",
           glyph.boardLocked ? "locked-board" : ""
         ].filter(Boolean).join(" "));
         rect.setAttribute("x", pos.x);
@@ -3390,7 +3469,8 @@
         rect.addEventListener("pointerdown", event => {
           event.preventDefault();
           event.stopPropagation();
-          selectBoard(glyph.id);
+          selectBoard(glyph.id, event);
+          if (isPrimaryShortcut(event)) return;
           startBoardDrag(event, glyph.id);
         });
         refs.neighborBoardLayer.appendChild(rect);
