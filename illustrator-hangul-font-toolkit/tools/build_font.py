@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build font files from a hangul-glyphs-lab font package JSON.
+"""Build font files from Hangul Glyphs Lab font package JSON or SVG Font.
 
-This script expects JSON exported from `hangul-glyphs-lab.html` with
-the "폰트 빌드 JSON" button. It uses fontTools for actual font generation.
+This script accepts JSON exported from `hangul-glyphs-lab.html` with the
+"폰트 빌드 JSON" button, or SVG Font exported with the "SVG 폰트" button.
+It uses fontTools for actual font generation.
 """
 
 from __future__ import annotations
@@ -36,21 +37,90 @@ def import_fonttools():
     return FontBuilder, TTGlyphPen, T2CharStringPen, TransformPen, parse_path
 
 
+def load_font_package(path: Path):
+    text = path.read_text(encoding="utf-8")
+    if path.suffix.lower() == ".svg" or text.lstrip().startswith("<"):
+        return svg_font_to_package(text, path.stem)
+    return json.loads(text)
+
+
+def svg_font_to_package(svg_text: str, fallback_name: str):
+    try:
+        root = ET.fromstring(svg_text)
+    except ET.ParseError as exc:
+        raise SystemExit(f"SVG Font 파일을 읽을 수 없습니다: {exc}") from exc
+
+    font_node = None
+    font_face = None
+    for node in root.iter():
+        tag = strip_ns(node.tag)
+        if tag == "font" and font_node is None:
+            font_node = node
+        elif tag == "font-face" and font_face is None:
+            font_face = node
+    if font_node is None:
+        raise SystemExit("SVG 안에서 <font> 요소를 찾지 못했습니다. 'SVG 폰트'로 내보낸 파일인지 확인하세요.")
+
+    face_attrs = font_face.attrib if font_face is not None else {}
+    family_name = face_attrs.get("font-family") or font_node.attrib.get("id") or fallback_name or "HangulGlyphsLab"
+    style_name = face_attrs.get("font-style") or "Regular"
+    if style_name == "normal":
+        style_name = "Regular"
+    units_per_em = int(float(face_attrs.get("units-per-em") or 1000))
+    ascent = int(float(face_attrs.get("ascent") or 880))
+    descent = int(float(face_attrs.get("descent") or -120))
+    default_width = int(float(font_node.attrib.get("horiz-adv-x") or units_per_em))
+
+    glyphs = []
+    for index, node in enumerate(font_node):
+        if strip_ns(node.tag) != "glyph":
+            continue
+        char = node.attrib.get("unicode") or ""
+        path_data = node.attrib.get("d") or ""
+        if not char or not path_data:
+            continue
+        glyphs.append({
+            "id": f"svg{index}",
+            "name": node.attrib.get("glyph-name") or f"uni{ord(char[0]):04X}",
+            "char": char[0],
+            "width": int(float(node.attrib.get("horiz-adv-x") or default_width)),
+            "pathData": path_data,
+        })
+
+    if not glyphs:
+        raise SystemExit("SVG Font 안에 unicode와 d 값을 가진 <glyph>가 없습니다.")
+
+    return {
+        "schema": "hangul-glyphs-lab-svg-font-package-v1",
+        "font": {
+            "familyName": family_name,
+            "styleName": style_name,
+            "unitsPerEm": units_per_em,
+            "ascent": ascent,
+            "descent": descent,
+            "baseline": ascent,
+            "formats": ["ttf"],
+        },
+        "glyphs": glyphs,
+        "components": [],
+    }
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build TTF/OTF/WOFF/WOFF2 from Hangul Glyphs Lab JSON.")
-    parser.add_argument("package_json", help="폰트 빌드 JSON 파일")
+    parser = argparse.ArgumentParser(description="Build TTF/OTF/WOFF/WOFF2 from Hangul Glyphs Lab JSON or SVG Font.")
+    parser.add_argument("source", help="폰트 빌드 JSON 파일 또는 SVG Font 파일")
     parser.add_argument("-o", "--out-dir", default="dist-font", help="출력 폴더")
     parser.add_argument(
         "-f",
         "--formats",
         nargs="+",
         choices=sorted(SUPPORTED_FORMATS),
-        help="출력 형식. 생략하면 JSON 안의 formats 값을 사용합니다.",
+        help="출력 형식. JSON에서는 생략하면 JSON 안의 formats 값을 사용하고, SVG에서는 생략하면 ttf를 만듭니다.",
     )
     args = parser.parse_args()
 
-    package_path = Path(args.package_json)
-    package = json.loads(package_path.read_text(encoding="utf-8"))
+    package_path = Path(args.source)
+    package = load_font_package(package_path)
     font_meta = package.get("font") or {}
     formats = args.formats or font_meta.get("formats") or ["ttf"]
     formats = [fmt.lower() for fmt in formats if fmt.lower() in SUPPORTED_FORMATS]
@@ -190,6 +260,14 @@ class FontPackageBuilder:
         }
 
     def draw_glyph(self, glyph, target_pen):
+        direct_path = glyph.get("pathData")
+        if direct_path:
+            try:
+                self.parse_path(direct_path, target_pen)
+            except Exception as exc:
+                print(f"경고: {glyph.get('name')} SVG Font path를 건너뜀: {exc}", file=sys.stderr)
+            return
+
         for element in glyph.get("elements") or []:
             transform = element_transform(element, self.baseline)
             pen = self.TransformPen(target_pen, transform)

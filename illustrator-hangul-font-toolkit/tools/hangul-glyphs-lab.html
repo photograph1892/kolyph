@@ -2841,6 +2841,8 @@
       let currentY = 0;
       let subpathX = 0;
       let subpathY = 0;
+      let previousCubicControl = null;
+      let previousQuadraticControl = null;
 
       while (i < tokens.length) {
         if (isPathCommand(tokens[i])) {
@@ -3024,6 +3026,8 @@
             output.push("Z");
             currentX = subpathX;
             currentY = subpathY;
+            previousCubicControl = null;
+            previousQuadraticControl = null;
           }
           command = "";
           continue;
@@ -3041,6 +3045,8 @@
             currentY = point.y;
             subpathX = currentX;
             subpathY = currentY;
+            previousCubicControl = null;
+            previousQuadraticControl = null;
             i += size;
             command = relative ? "l" : "L";
             break;
@@ -3052,15 +3058,30 @@
             output.push("L", ...fontPointTokens(point, element, baseline));
             currentX = point.x;
             currentY = point.y;
+            previousCubicControl = null;
+            previousQuadraticControl = null;
           } else if (lower === "v") {
             const y = (relative ? startY : 0) + Number(tokens[i]);
             const point = { x: startX, y };
             output.push("L", ...fontPointTokens(point, element, baseline));
             currentX = point.x;
             currentY = point.y;
+            previousCubicControl = null;
+            previousQuadraticControl = null;
           } else if (lower === "l" || lower === "t") {
             const point = readPoint(tokens, i, i + 1, relative, startX, startY);
-            output.push("L", ...fontPointTokens(point, element, baseline));
+            if (lower === "t") {
+              const control = previousQuadraticControl
+                ? { x: startX * 2 - previousQuadraticControl.x, y: startY * 2 - previousQuadraticControl.y }
+                : { x: startX, y: startY };
+              output.push("C", ...fontPointTokens(quadraticToCubicStart({ x: startX, y: startY }, control), element, baseline), ...fontPointTokens(quadraticToCubicEnd(point, control), element, baseline), ...fontPointTokens(point, element, baseline));
+              previousQuadraticControl = control;
+              previousCubicControl = null;
+            } else {
+              output.push("L", ...fontPointTokens(point, element, baseline));
+              previousCubicControl = null;
+              previousQuadraticControl = null;
+            }
             currentX = point.x;
             currentY = point.y;
           } else if (lower === "c") {
@@ -3068,12 +3089,25 @@
             const p2 = readPoint(tokens, i + 2, i + 3, relative, startX, startY);
             const p3 = readPoint(tokens, i + 4, i + 5, relative, startX, startY);
             output.push("C", ...fontPointTokens(p1, element, baseline), ...fontPointTokens(p2, element, baseline), ...fontPointTokens(p3, element, baseline));
+            previousCubicControl = p2;
+            previousQuadraticControl = null;
             currentX = p3.x;
             currentY = p3.y;
           } else if (lower === "s" || lower === "q") {
             const p1 = readPoint(tokens, i, i + 1, relative, startX, startY);
             const p2 = readPoint(tokens, i + 2, i + 3, relative, startX, startY);
-            output.push(lower === "q" ? "Q" : "S", ...fontPointTokens(p1, element, baseline), ...fontPointTokens(p2, element, baseline));
+            if (lower === "q") {
+              output.push("C", ...fontPointTokens(quadraticToCubicStart({ x: startX, y: startY }, p1), element, baseline), ...fontPointTokens(quadraticToCubicEnd(p2, p1), element, baseline), ...fontPointTokens(p2, element, baseline));
+              previousQuadraticControl = p1;
+              previousCubicControl = null;
+            } else {
+              const reflected = previousCubicControl
+                ? { x: startX * 2 - previousCubicControl.x, y: startY * 2 - previousCubicControl.y }
+                : { x: startX, y: startY };
+              output.push("C", ...fontPointTokens(reflected, element, baseline), ...fontPointTokens(p1, element, baseline), ...fontPointTokens(p2, element, baseline));
+              previousCubicControl = p1;
+              previousQuadraticControl = null;
+            }
             currentX = p2.x;
             currentY = p2.y;
           } else if (lower === "a") {
@@ -3081,6 +3115,8 @@
             output.push("L", ...fontPointTokens(point, element, baseline));
             currentX = point.x;
             currentY = point.y;
+            previousCubicControl = null;
+            previousQuadraticControl = null;
           }
           i += size;
         }
@@ -3091,6 +3127,20 @@
     function fontPointTokens(point, element, baseline) {
       const canvas = transformElementLocalPoint(point.x, point.y, element);
       return [formatPathNumber(canvas.x), formatPathNumber(baseline - canvas.y)];
+    }
+
+    function quadraticToCubicStart(start, control) {
+      return {
+        x: start.x + (control.x - start.x) * 2 / 3,
+        y: start.y + (control.y - start.y) * 2 / 3
+      };
+    }
+
+    function quadraticToCubicEnd(end, control) {
+      return {
+        x: end.x + (control.x - end.x) * 2 / 3,
+        y: end.y + (control.y - end.y) * 2 / 3
+      };
     }
 
     function transformElementLocalPoint(x, y, element) {
@@ -3184,7 +3234,7 @@
         .map(glyph => {
           const d = glyph.elements.map(element => elementToSvgFontPath(element, 880)).filter(Boolean).join(" ");
           if (!d) return "";
-          return `<glyph glyph-name="${escapeAttr(glyph.name)}" unicode="${escapeAttr(glyph.char[0])}" horiz-adv-x="${glyph.width || 1000}" d="${escapeAttr(d)}" />`;
+          return `<glyph glyph-name="${escapeAttr(glyph.name)}" unicode="${escapeHtml(glyph.char[0])}" horiz-adv-x="${glyph.width || 1000}" d="${escapeHtml(d)}" />`;
         })
         .filter(Boolean)
         .join("\n      ");
@@ -3194,8 +3244,8 @@
   <defs>
     <font id="${escapeAttr(fontId)}" horiz-adv-x="1000">
       <font-face
-        font-family="${escapeAttr(familyName)}"
-        font-style="${escapeAttr(styleName)}"
+        font-family="${escapeHtml(familyName)}"
+        font-style="normal"
         units-per-em="1000"
         ascent="880"
         descent="-120" />
