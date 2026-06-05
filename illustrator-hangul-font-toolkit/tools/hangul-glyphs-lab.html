@@ -163,6 +163,22 @@
       text-overflow: ellipsis;
     }
 
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      color: var(--text);
+      font-size: 12px;
+      user-select: none;
+    }
+
+    .check-row input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+    }
+
     .workspace {
       min-width: 0;
       min-height: 0;
@@ -743,6 +759,10 @@
             <input id="glyphChar" value="">
           </div>
         </div>
+        <label class="check-row" for="backgroundGuidesToggle">
+          <input id="backgroundGuidesToggle" type="checkbox" checked>
+          <span>배경 글자 가이드 표시</span>
+        </label>
       </div>
 
       <div class="section">
@@ -922,6 +942,7 @@
     state.panX = state.panX || 0;
     state.panY = state.panY || 0;
     state.rulersOn = state.rulersOn || false;
+    state.backgroundGuidesVisible = state.backgroundGuidesVisible !== false;
     state.userGuides = state.userGuides || [];
     state.boardPosition = state.boardPosition || "center";
     state.font = state.font || { familyName: "HangulGlyphsLab", styleName: "Regular", formats: ["ttf"] };
@@ -974,6 +995,7 @@
       fontFamilyName: document.getElementById("fontFamilyName"),
       fontStyleName: document.getElementById("fontStyleName"),
       fontFormats: document.getElementById("fontFormats"),
+      backgroundGuidesToggle: document.getElementById("backgroundGuidesToggle"),
       canvasContextMenu: document.getElementById("canvasContextMenu")
     };
 
@@ -1013,6 +1035,7 @@
     document.getElementById("resetTransformBtn").addEventListener("click", resetSelectedTransform);
     document.getElementById("copyPathDataBtn").addEventListener("click", copyPathData);
     document.getElementById("applyBezierBtn").addEventListener("click", applyBezierValues);
+    refs.backgroundGuidesToggle.addEventListener("change", toggleBackgroundGuides);
 
     refs.glyphName.addEventListener("input", updateGlyphMeta);
     refs.advanceWidth.addEventListener("input", updateGlyphMeta);
@@ -1113,7 +1136,7 @@
       selectedElementId = selectedElementIds.includes(selectedElementId) ? selectedElementId : (selectedElementIds[0] || null);
       selectedBoardIds = selectedBoardIds.filter(id => state.glyphs.some(item => item.id === id));
       selectedBoardId = selectedBoardIds.includes(selectedBoardId) ? selectedBoardId : (selectedBoardIds[0] || null);
-      refs.backgroundGlyphGuide.textContent = glyph && glyph.char ? glyph.char : "";
+      refs.backgroundGlyphGuide.textContent = state.backgroundGuidesVisible && glyph && glyph.char ? glyph.char : "";
       if (!state.glyphs.length) return;
 
       state.glyphs.forEach((boardGlyph, glyphIndex) => {
@@ -1153,6 +1176,7 @@
       refs.glyphName.value = glyph.name;
       refs.advanceWidth.value = glyph.width;
       refs.glyphChar.value = glyph.char || "";
+      refs.backgroundGuidesToggle.checked = state.backgroundGuidesVisible !== false;
 
       const element = activeElement();
       const disabled = !element;
@@ -2051,6 +2075,14 @@
       };
       if (state.font.formats.length === 0) state.font.formats = ["ttf"];
       saveState();
+    }
+
+    function toggleBackgroundGuides() {
+      state.backgroundGuidesVisible = !!refs.backgroundGuidesToggle.checked;
+      renderEditor();
+      renderNeighborBoards();
+      saveState();
+      setStatus(state.backgroundGuidesVisible ? "배경 글자 가이드를 표시합니다." : "배경 글자 가이드를 숨겼습니다.");
     }
 
     function applyElementTransform(group, element, offset) {
@@ -3302,6 +3334,7 @@
         userGuides: state.userGuides,
         boardPosition: state.boardPosition,
         rulersOn: state.rulersOn,
+        backgroundGuidesVisible: state.backgroundGuidesVisible,
         selectedElementId,
         selectedElementIds,
         selectedGuideIds,
@@ -3322,6 +3355,7 @@
       normalizeBoardPositions();
       state.boardPosition = restored.boardPosition || "center";
       state.rulersOn = !!restored.rulersOn;
+      state.backgroundGuidesVisible = restored.backgroundGuidesVisible !== false;
       selectedElementId = restored.selectedElementId || null;
       selectedElementIds = restored.selectedElementIds || (selectedElementId ? [selectedElementId] : []);
       selectedGuideIds = restored.selectedGuideIds || [];
@@ -3524,7 +3558,7 @@
         });
         refs.neighborBoardLayer.appendChild(rect);
 
-        if (glyph.id !== state.activeGlyphId && glyph.char) {
+        if (state.backgroundGuidesVisible && glyph.id !== state.activeGlyphId && glyph.char) {
           const preview = document.createElementNS(NS, "text");
           preview.setAttribute("class", "background-glyph board-preview");
           preview.setAttribute("x", pos.x + 500);
