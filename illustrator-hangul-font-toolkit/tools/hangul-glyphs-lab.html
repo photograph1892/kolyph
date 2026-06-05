@@ -328,6 +328,11 @@
       stroke-dasharray: 8 5;
     }
 
+    .selection-box.secondary-selection {
+      stroke: #0f766e;
+      stroke-dasharray: 6 5;
+    }
+
     .marquee-box {
       pointer-events: none;
       fill: rgba(15, 118, 110, .08);
@@ -2037,49 +2042,66 @@
     }
 
     function updateSelectionBox() {
-      const element = activeElement();
-      const box = element ? measureSelectedBounds() : null;
-      if (!box) {
+      const glyph = activeGlyph();
+      const selected = glyph
+        ? selectedElementIds
+          .map(id => ({ id, element: glyph.elements.find(item => item.id === id), box: measureElementBounds(id) }))
+          .filter(item => item.element && item.box)
+        : [];
+      refs.selectionBox.setAttribute("visibility", "hidden");
+      refs.pathOverlayLayer.innerHTML = "";
+      refs.handleLayer.innerHTML = "";
+      refs.anchorLayer.innerHTML = "";
+      if (!selected.length) {
         refs.selectionBox.setAttribute("visibility", "hidden");
-        refs.pathOverlayLayer.innerHTML = "";
-        refs.handleLayer.innerHTML = "";
-        refs.anchorLayer.innerHTML = "";
         return;
       }
-      refs.selectionBox.setAttribute("x", box.x);
-      refs.selectionBox.setAttribute("y", box.y);
-      refs.selectionBox.setAttribute("width", box.width);
-      refs.selectionBox.setAttribute("height", box.height);
-      refs.selectionBox.setAttribute("visibility", "visible");
-      updatePathOverlay();
-      updateResizeHandles(box);
-      updateAnchorOverlay();
+      selected.forEach(item => drawSelectionOutline(item.box, item.id === selectedElementId));
+      updatePathOverlay(selected);
+      if (selected.length === 1) {
+        updateResizeHandles(selected[0].box);
+        updateAnchorOverlay();
+      }
     }
 
-    function updatePathOverlay() {
+    function drawSelectionOutline(box, active) {
+      const rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("class", "selection-box");
+      rect.classList.toggle("secondary-selection", !active);
+      rect.setAttribute("x", box.x);
+      rect.setAttribute("y", box.y);
+      rect.setAttribute("width", box.width);
+      rect.setAttribute("height", box.height);
+      rect.setAttribute("stroke-width", uiSize(active ? 2.8 : 2.2));
+      refs.handleLayer.appendChild(rect);
+    }
+
+    function updatePathOverlay(selectedItems) {
       refs.pathOverlayLayer.innerHTML = "";
-      const element = activeElement();
-      if (!element) return;
-      const source = svgFromMarkup(element.markup);
-      applyElementTransform(source, element, activeBoardOffset());
-      source.removeAttribute("data-element-id");
-      source.setAttribute("class", "");
-      drawableNodes(source).forEach(node => {
-        node.removeAttribute("style");
-        node.removeAttribute("fill");
-        node.setAttribute("fill", "none");
-        node.setAttribute("stroke", "#e11d48");
-        node.setAttribute("stroke-width", "2");
-        node.setAttribute("vector-effect", "non-scaling-stroke");
-        node.setAttribute("pointer-events", "none");
+      const glyph = activeGlyph();
+      if (!glyph) return;
+      const offset = activeBoardOffset();
+      selectedItems.forEach(item => {
+        const source = svgFromMarkup(item.element.markup);
+        applyElementTransform(source, item.element, offset);
+        source.removeAttribute("data-element-id");
+        source.setAttribute("class", "");
+        drawableNodes(source).forEach(node => {
+          node.removeAttribute("style");
+          node.removeAttribute("fill");
+          node.setAttribute("fill", "none");
+          node.setAttribute("stroke", item.id === selectedElementId ? "#e11d48" : "#0f766e");
+          node.setAttribute("stroke-width", uiSize(item.id === selectedElementId ? 2.4 : 2));
+          node.setAttribute("vector-effect", "non-scaling-stroke");
+          node.setAttribute("pointer-events", "none");
+        });
+        source.setAttribute("pointer-events", "none");
+        refs.pathOverlayLayer.appendChild(source);
       });
-      source.setAttribute("pointer-events", "none");
-      refs.pathOverlayLayer.appendChild(source);
     }
 
     function updateResizeHandles(box) {
-      refs.handleLayer.innerHTML = "";
-      const size = uiSize(16);
+      const size = uiSize(24);
       const handles = [
         ["nw", box.x, box.y],
         ["n", box.x + box.width / 2, box.y],
@@ -2099,7 +2121,7 @@
         rect.setAttribute("y", y - size / 2);
         rect.setAttribute("width", size);
         rect.setAttribute("height", size);
-        rect.setAttribute("stroke-width", uiSize(2.6));
+        rect.setAttribute("stroke-width", uiSize(3.2));
         rect.addEventListener("pointerdown", startResizeDrag);
         refs.handleLayer.appendChild(rect);
       });
@@ -2203,8 +2225,8 @@
         if (isSelectedAnchor(anchor)) circle.classList.add("selected");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", uiSize(anchor.role === "control" ? 6 : 7));
-        circle.setAttribute("stroke-width", uiSize(2.6));
+        circle.setAttribute("r", uiSize(anchor.role === "control" ? 10 : 11));
+        circle.setAttribute("stroke-width", uiSize(3.2));
         circle.addEventListener("pointerdown", startAnchorDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2223,7 +2245,7 @@
         line.setAttribute("y1", anchorPoint.y);
         line.setAttribute("x2", handlePoint.x);
         line.setAttribute("y2", handlePoint.y);
-        line.setAttribute("stroke-width", uiSize(1.4));
+        line.setAttribute("stroke-width", uiSize(2));
         refs.anchorLayer.appendChild(line);
 
         const circle = document.createElementNS(NS, "circle");
@@ -2233,8 +2255,8 @@
         circle.setAttribute("data-y-token-index", handle.yTokenIndex);
         circle.setAttribute("cx", handlePoint.x);
         circle.setAttribute("cy", handlePoint.y);
-        circle.setAttribute("r", uiSize(6));
-        circle.setAttribute("stroke-width", uiSize(2.6));
+        circle.setAttribute("r", uiSize(10));
+        circle.setAttribute("stroke-width", uiSize(3.2));
         circle.addEventListener("pointerdown", startBezierHandleDrag);
         refs.anchorLayer.appendChild(circle);
       });
@@ -2310,8 +2332,9 @@
 
     function uiSize(value) {
       const zoom = Math.max(state.zoom || 1, 0.001);
-      const growth = Math.min(2.4, Math.max(1, 1 + Math.log2(Math.max(zoom, 1)) * 0.12));
-      return value * growth / zoom;
+      const zoomIn = Math.max(zoom, 1);
+      const screenSize = Math.max(value * 0.58, value * 1.45 / Math.pow(zoomIn, 0.34));
+      return screenSize / zoom;
     }
 
     function startAnchorDrag(event) {
@@ -3238,6 +3261,7 @@
       const anchor = anchorEvent ? getZoomAnchor(anchorEvent) : null;
       state.zoom = nextZoom;
       applyZoom();
+      updateSelectionBox();
       if (anchor) keepZoomAnchorUnderCursor(anchor);
       saveState();
       setStatus("확대율: " + Math.round(state.zoom * 100) + "%");
