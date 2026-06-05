@@ -314,7 +314,7 @@
       cursor: move;
       fill: none;
       stroke: transparent;
-      stroke-width: 42;
+      stroke-width: 96;
       vector-effect: non-scaling-stroke;
       pointer-events: stroke;
     }
@@ -348,6 +348,21 @@
       stroke-width: 2;
       vector-effect: non-scaling-stroke;
       cursor: pointer;
+    }
+
+    .resize-hit-target,
+    .anchor-hit-target {
+      fill: transparent;
+      stroke: transparent;
+      pointer-events: all;
+    }
+
+    .resize-hit-target {
+      cursor: pointer;
+    }
+
+    .anchor-hit-target {
+      cursor: crosshair;
     }
 
     .anchor-point {
@@ -2054,7 +2069,7 @@
         node.removeAttribute("style");
         node.setAttribute("fill", "transparent");
         node.setAttribute("stroke", "transparent");
-        node.setAttribute("stroke-width", "42");
+        node.setAttribute("stroke-width", "96");
         node.setAttribute("vector-effect", "non-scaling-stroke");
         node.setAttribute("pointer-events", "all");
       });
@@ -2170,7 +2185,8 @@
     }
 
     function updateResizeHandles(box) {
-      const size = uiSize(44);
+      const size = uiSize(64);
+      const hitSize = uiSize(96);
       const handles = [
         ["nw", box.x, box.y],
         ["n", box.x + box.width / 2, box.y],
@@ -2193,6 +2209,16 @@
         rect.setAttribute("stroke-width", 3);
         rect.addEventListener("pointerdown", startResizeDrag);
         refs.handleLayer.appendChild(rect);
+
+        const hit = document.createElementNS(NS, "rect");
+        hit.setAttribute("class", "resize-hit-target");
+        hit.setAttribute("data-handle", name);
+        hit.setAttribute("x", x - hitSize / 2);
+        hit.setAttribute("y", y - hitSize / 2);
+        hit.setAttribute("width", hitSize);
+        hit.setAttribute("height", hitSize);
+        hit.addEventListener("pointerdown", startResizeDrag);
+        refs.handleLayer.appendChild(hit);
       });
     }
 
@@ -2294,10 +2320,22 @@
         if (isSelectedAnchor(anchor)) circle.classList.add("selected");
         circle.setAttribute("cx", p.x);
         circle.setAttribute("cy", p.y);
-        circle.setAttribute("r", uiSize(anchor.role === "control" ? 22 : 24));
-        circle.setAttribute("stroke-width", 4);
+        circle.setAttribute("r", uiSize(anchor.role === "control" ? 32 : 34));
+        circle.setAttribute("stroke-width", 5);
         circle.addEventListener("pointerdown", startAnchorDrag);
         refs.anchorLayer.appendChild(circle);
+
+        const hit = document.createElementNS(NS, "circle");
+        hit.setAttribute("class", "anchor-hit-target");
+        hit.setAttribute("data-path-index", anchor.pathIndex);
+        hit.setAttribute("data-token-index", anchor.tokenIndex);
+        hit.setAttribute("data-y-token-index", anchor.yTokenIndex);
+        hit.setAttribute("data-role", anchor.role);
+        hit.setAttribute("cx", p.x);
+        hit.setAttribute("cy", p.y);
+        hit.setAttribute("r", uiSize(62));
+        hit.addEventListener("pointerdown", startAnchorDrag);
+        refs.anchorLayer.appendChild(hit);
       });
       updateSelectedBezierHandles(element);
     }
@@ -2314,7 +2352,7 @@
         line.setAttribute("y1", anchorPoint.y);
         line.setAttribute("x2", handlePoint.x);
         line.setAttribute("y2", handlePoint.y);
-        line.setAttribute("stroke-width", 3);
+        line.setAttribute("stroke-width", 4);
         refs.anchorLayer.appendChild(line);
 
         const circle = document.createElementNS(NS, "circle");
@@ -2324,10 +2362,21 @@
         circle.setAttribute("data-y-token-index", handle.yTokenIndex);
         circle.setAttribute("cx", handlePoint.x);
         circle.setAttribute("cy", handlePoint.y);
-        circle.setAttribute("r", uiSize(22));
-        circle.setAttribute("stroke-width", 4);
+        circle.setAttribute("r", uiSize(32));
+        circle.setAttribute("stroke-width", 5);
         circle.addEventListener("pointerdown", startBezierHandleDrag);
         refs.anchorLayer.appendChild(circle);
+
+        const hit = document.createElementNS(NS, "circle");
+        hit.setAttribute("class", "anchor-hit-target");
+        hit.setAttribute("data-path-index", handle.pathIndex);
+        hit.setAttribute("data-token-index", handle.tokenIndex);
+        hit.setAttribute("data-y-token-index", handle.yTokenIndex);
+        hit.setAttribute("cx", handlePoint.x);
+        hit.setAttribute("cy", handlePoint.y);
+        hit.setAttribute("r", uiSize(58));
+        hit.addEventListener("pointerdown", startBezierHandleDrag);
+        refs.anchorLayer.appendChild(hit);
       });
     }
 
