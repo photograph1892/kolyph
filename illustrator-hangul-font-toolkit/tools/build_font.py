@@ -77,7 +77,7 @@ def svg_font_to_package(svg_text: str, fallback_name: str):
             continue
         char = node.attrib.get("unicode") or ""
         path_data = node.attrib.get("d") or ""
-        if not char or not path_data:
+        if not char:
             continue
         glyphs.append({
             "id": f"svg{index}",
@@ -88,7 +88,7 @@ def svg_font_to_package(svg_text: str, fallback_name: str):
         })
 
     if not glyphs:
-        raise SystemExit("SVG Font 안에 unicode와 d 값을 가진 <glyph>가 없습니다.")
+        raise SystemExit("SVG Font 안에 unicode 값을 가진 <glyph>가 없습니다.")
 
     return {
         "schema": "hangul-glyphs-lab-svg-font-package-v1",

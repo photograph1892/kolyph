@@ -84,6 +84,8 @@ python tools/build_font.py HangulGlyphsLab-font-package.json -o dist-font -f ttf
 
 `자동 좌우 여백`을 켜면 내보내기 직전에 각 글리프의 실제 path bbox를 기준으로 왼쪽/오른쪽 여백을 다시 계산합니다. 원본 아트보드 작업은 바꾸지 않고, export용 path와 advance width만 정규화합니다.
 
+내보내기에는 `space` 글리프도 자동 포함됩니다. 직접 만든 띄어쓰기 글리프가 없으면 만들어진 글리프들의 advance width 중앙값을 기준으로 본문용 띄어쓰기 폭을 계산하고, 너무 좁거나 넓지 않도록 320-520 범위로 제한합니다.
+
 `SVG 폰트` 내보내기는 현재 작업 중인 글리프의 path 데이터를 폰트 좌표계로 뒤집어 각 `<glyph d="...">`에 넣습니다. 외부 변환 도구에 넘길 수도 있고, `tools/build_font.py`에 바로 넣어 TTF/OTF/WOFF/WOFF2로 빌드할 수도 있습니다. 편집 상태 전체를 보존하는 용도는 `프로젝트 JSON`이 더 안전합니다.
 
 현재 빌드 스크립트와 SVG Font 내보내기는 SVG `path` 데이터를 폰트 outline으로 변환합니다. `rect`, `circle` 같은 비-path 도형이나 복잡한 중첩 transform은 Illustrator 또는 HTML 편집기에서 path로 확장한 뒤 내보내는 흐름을 권장합니다.

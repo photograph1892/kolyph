@@ -3330,6 +3330,7 @@
 
     function exportFontPackage() {
       updateFontMeta();
+      const exportGlyphs = exportGlyphRecordsWithSpace();
       const fontPackage = {
         schema: "hangul-glyphs-lab-font-package-v1",
         font: {
@@ -3344,9 +3345,7 @@
           sidebearing: exportSidebearing(),
           script: "Hangul"
         },
-        glyphs: state.glyphs
-          .filter(glyph => glyph.char || glyph.elements.length > 0)
-          .map(glyph => fontPackageGlyphRecord(glyph)),
+        glyphs: exportGlyphs.map(item => item.record),
         components: state.components || []
       };
       const familySlug = (fontPackage.font.familyName || "HangulGlyphsLab").replace(/[^\w.-]+/g, "-");
@@ -3358,12 +3357,12 @@
       const familyName = state.font.familyName || "HangulGlyphsLab";
       const styleName = state.font.styleName || "Regular";
       const fontId = `${familyName}-${styleName}`.replace(/[^\w.-]+/g, "-");
-      const glyphs = state.glyphs
-        .filter(glyph => glyph.char && glyph.elements && glyph.elements.length > 0)
-        .map(glyph => {
-          const exportGlyph = makeExportGlyph(glyph);
-          if (!exportGlyph || !exportGlyph.d) return "";
-          return `<glyph glyph-name="${escapeAttr(glyph.name)}" unicode="${escapeHtml(glyph.char[0])}" horiz-adv-x="${exportGlyph.width}" d="${escapeHtml(exportGlyph.d)}" />`;
+      const glyphs = exportGlyphRecordsWithSpace()
+        .filter(item => item.record.char)
+        .map(item => {
+          const record = item.record;
+          const d = record.pathData ? ` d="${escapeHtml(record.pathData)}"` : "";
+          return `<glyph glyph-name="${escapeAttr(record.name)}" unicode="${escapeHtml(record.char[0])}" horiz-adv-x="${record.width || 1000}"${d} />`;
         })
         .filter(Boolean)
         .join("\n      ");
@@ -3408,6 +3407,38 @@
         record.elements = glyph.elements || [];
       }
       return record;
+    }
+
+    function exportGlyphRecordsWithSpace() {
+      const records = state.glyphs
+        .filter(glyph => glyph.char || glyph.elements.length > 0)
+        .map(glyph => ({ source: glyph, record: fontPackageGlyphRecord(glyph) }));
+      const hasSpace = records.some(item => item.record.char === " ");
+      if (!hasSpace) {
+        records.push({
+          source: null,
+          record: {
+            id: "space",
+            name: "space",
+            char: " ",
+            width: calculateSpaceWidth(records),
+            pathData: "",
+            autoSpace: true
+          }
+        });
+      }
+      return records;
+    }
+
+    function calculateSpaceWidth(records) {
+      const widths = records
+        .map(item => Number(item.record.width))
+        .filter(width => Number.isFinite(width) && width > 0)
+        .sort((a, b) => a - b);
+      if (!widths.length) return 360;
+      const middle = Math.floor(widths.length / 2);
+      const median = widths.length % 2 ? widths[middle] : (widths[middle - 1] + widths[middle]) / 2;
+      return clamp(Math.round(median * 0.52), 320, 520);
     }
 
     function makeExportGlyph(glyph) {
