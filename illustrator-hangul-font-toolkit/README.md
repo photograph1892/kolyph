@@ -61,20 +61,23 @@
 ## 폰트 파일 내보내기
 
 1. `hangul-glyphs-lab.html`의 `폰트 내보내기` 영역에서 패밀리 이름, 스타일, 출력 형식을 선택합니다.
-2. 상단의 `폰트 빌드 JSON`을 눌러 JSON 파일을 저장합니다.
-3. 최초 1회만 폰트 빌드 의존성을 설치합니다.
+2. 상단의 `SVG 폰트`를 누르면 `<font>`/`<glyph>` 구조의 SVG Font 파일을 바로 저장할 수 있습니다.
+3. TTF/OTF/WOFF/WOFF2까지 빌드하려면 상단의 `폰트 빌드 JSON`을 눌러 JSON 파일을 저장합니다.
+4. 최초 1회만 폰트 빌드 의존성을 설치합니다.
 
 ```powershell
 python -m pip install -r tools/requirements-font-export.txt
 ```
 
-4. 저장한 JSON을 빌드 스크립트에 넣습니다.
+5. 저장한 JSON을 빌드 스크립트에 넣습니다.
 
 ```powershell
 python tools/build_font.py HangulGlyphsLab-font-package.json -o dist-font -f ttf otf woff woff2
 ```
 
-현재 빌드 스크립트는 SVG `path` 데이터를 폰트 outline으로 변환합니다. `rect`, `circle` 같은 비-path 도형은 Illustrator 또는 HTML 편집기에서 path로 확장한 뒤 내보내는 흐름을 권장합니다.
+`SVG 폰트` 내보내기는 현재 작업 중인 글리프의 path 데이터를 폰트 좌표계로 뒤집어 각 `<glyph d="...">`에 넣습니다. 외부 변환 도구에 넘기기 좋은 중간 파일이고, 편집 상태 전체를 보존하는 용도는 `프로젝트 JSON`이 더 안전합니다.
+
+현재 빌드 스크립트와 SVG Font 내보내기는 SVG `path` 데이터를 폰트 outline으로 변환합니다. `rect`, `circle` 같은 비-path 도형이나 복잡한 중첩 transform은 Illustrator 또는 HTML 편집기에서 path로 확장한 뒤 내보내는 흐름을 권장합니다.
 
 ## 현재 한계
 

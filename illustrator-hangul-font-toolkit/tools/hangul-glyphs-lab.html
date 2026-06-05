@@ -646,6 +646,7 @@
         <button id="exportGlyphBtn">SVG 내보내기</button>
         <button id="exportProjectBtn">프로젝트 JSON</button>
         <button id="exportFontPackageBtn">폰트 빌드 JSON</button>
+        <button id="exportSvgFontBtn">SVG 폰트</button>
       </div>
     </header>
 
@@ -983,6 +984,7 @@
     document.getElementById("exportGlyphBtn").addEventListener("click", exportCurrentGlyph);
     document.getElementById("exportProjectBtn").addEventListener("click", exportProject);
     document.getElementById("exportFontPackageBtn").addEventListener("click", exportFontPackage);
+    document.getElementById("exportSvgFontBtn").addEventListener("click", exportSvgFont);
     document.getElementById("applyTransformBtn").addEventListener("click", applyInspectorTransform);
     document.getElementById("applyBoundsBtn").addEventListener("click", applyInspectorBounds);
     document.getElementById("centerElementBtn").addEventListener("click", centerSelectedElement);
@@ -2804,6 +2806,114 @@
       };
     }
 
+    function transformPathDataForSvgFont(d, element, baseline) {
+      const tokens = tokenizePath(d);
+      const output = [];
+      let command = "";
+      let i = 0;
+      let currentX = 0;
+      let currentY = 0;
+      let subpathX = 0;
+      let subpathY = 0;
+
+      while (i < tokens.length) {
+        if (isPathCommand(tokens[i])) {
+          command = tokens[i];
+          i++;
+        }
+        if (!command) break;
+
+        const lower = command.toLowerCase();
+        const relative = command === lower;
+        const size = commandParamCount(lower);
+        if (size === 0) {
+          if (lower === "z") {
+            output.push("Z");
+            currentX = subpathX;
+            currentY = subpathY;
+          }
+          command = "";
+          continue;
+        }
+
+        while (i < tokens.length && !isPathCommand(tokens[i])) {
+          if (i + size - 1 >= tokens.length) break;
+          const startX = currentX;
+          const startY = currentY;
+
+          if (lower === "m") {
+            const point = readPoint(tokens, i, i + 1, relative, startX, startY);
+            output.push("M", ...fontPointTokens(point, element, baseline));
+            currentX = point.x;
+            currentY = point.y;
+            subpathX = currentX;
+            subpathY = currentY;
+            i += size;
+            command = relative ? "l" : "L";
+            break;
+          }
+
+          if (lower === "h") {
+            const x = (relative ? startX : 0) + Number(tokens[i]);
+            const point = { x, y: startY };
+            output.push("L", ...fontPointTokens(point, element, baseline));
+            currentX = point.x;
+            currentY = point.y;
+          } else if (lower === "v") {
+            const y = (relative ? startY : 0) + Number(tokens[i]);
+            const point = { x: startX, y };
+            output.push("L", ...fontPointTokens(point, element, baseline));
+            currentX = point.x;
+            currentY = point.y;
+          } else if (lower === "l" || lower === "t") {
+            const point = readPoint(tokens, i, i + 1, relative, startX, startY);
+            output.push("L", ...fontPointTokens(point, element, baseline));
+            currentX = point.x;
+            currentY = point.y;
+          } else if (lower === "c") {
+            const p1 = readPoint(tokens, i, i + 1, relative, startX, startY);
+            const p2 = readPoint(tokens, i + 2, i + 3, relative, startX, startY);
+            const p3 = readPoint(tokens, i + 4, i + 5, relative, startX, startY);
+            output.push("C", ...fontPointTokens(p1, element, baseline), ...fontPointTokens(p2, element, baseline), ...fontPointTokens(p3, element, baseline));
+            currentX = p3.x;
+            currentY = p3.y;
+          } else if (lower === "s" || lower === "q") {
+            const p1 = readPoint(tokens, i, i + 1, relative, startX, startY);
+            const p2 = readPoint(tokens, i + 2, i + 3, relative, startX, startY);
+            output.push(lower === "q" ? "Q" : "S", ...fontPointTokens(p1, element, baseline), ...fontPointTokens(p2, element, baseline));
+            currentX = p2.x;
+            currentY = p2.y;
+          } else if (lower === "a") {
+            const point = readPoint(tokens, i + 5, i + 6, relative, startX, startY);
+            output.push("L", ...fontPointTokens(point, element, baseline));
+            currentX = point.x;
+            currentY = point.y;
+          }
+          i += size;
+        }
+      }
+      return output.join(" ");
+    }
+
+    function fontPointTokens(point, element, baseline) {
+      const canvas = transformElementLocalPoint(point.x, point.y, element);
+      return [formatPathNumber(canvas.x), formatPathNumber(baseline - canvas.y)];
+    }
+
+    function transformElementLocalPoint(x, y, element) {
+      const sx = element.scaleX || element.scale || 1;
+      const sy = element.scaleY || element.scale || 1;
+      const angle = (element.rotate || 0) * Math.PI / 180;
+      const scaledX = x * sx;
+      const scaledY = y * sy;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      return {
+        x: (element.tx || 0) + scaledX * cos - scaledY * sin,
+        y: (element.ty || 0) + scaledX * sin + scaledY * cos
+      };
+    }
+
     function formatPathNumber(value) {
       return String(Math.round(value * 1000) / 1000);
     }
@@ -2869,6 +2979,54 @@
       };
       const familySlug = (fontPackage.font.familyName || "HangulGlyphsLab").replace(/[^\w.-]+/g, "-");
       download(`${familySlug}-font-package.json`, JSON.stringify(fontPackage, null, 2), "application/json");
+    }
+
+    function exportSvgFont() {
+      updateFontMeta();
+      const familyName = state.font.familyName || "HangulGlyphsLab";
+      const styleName = state.font.styleName || "Regular";
+      const fontId = `${familyName}-${styleName}`.replace(/[^\w.-]+/g, "-");
+      const glyphs = state.glyphs
+        .filter(glyph => glyph.char && glyph.elements && glyph.elements.length > 0)
+        .map(glyph => {
+          const d = glyph.elements.map(element => elementToSvgFontPath(element, 880)).filter(Boolean).join(" ");
+          if (!d) return "";
+          return `<glyph glyph-name="${escapeAttr(glyph.name)}" unicode="${escapeAttr(glyph.char[0])}" horiz-adv-x="${glyph.width || 1000}" d="${escapeAttr(d)}" />`;
+        })
+        .filter(Boolean)
+        .join("\n      ");
+
+      const svgFont = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <font id="${escapeAttr(fontId)}" horiz-adv-x="1000">
+      <font-face
+        font-family="${escapeAttr(familyName)}"
+        font-style="${escapeAttr(styleName)}"
+        units-per-em="1000"
+        ascent="880"
+        descent="-120" />
+      <missing-glyph horiz-adv-x="1000" />
+      ${glyphs}
+    </font>
+  </defs>
+</svg>`;
+      download(`${fontId}.svg`, svgFont, "image/svg+xml");
+    }
+
+    function elementToSvgFontPath(element, baseline) {
+      return extractPathDataIncludingRoot(element.markup)
+        .map(pathData => transformPathDataForSvgFont(pathData, element, baseline))
+        .filter(Boolean)
+        .join(" ");
+    }
+
+    function extractPathDataIncludingRoot(markup) {
+      const wrapper = document.createElementNS(NS, "svg");
+      wrapper.innerHTML = markup;
+      return Array.from(wrapper.querySelectorAll("path"))
+        .map(path => path.getAttribute("d"))
+        .filter(Boolean);
     }
 
     function makeGlyphSvg(glyph, thumb) {
