@@ -3356,8 +3356,10 @@
       updateFontMeta();
       const familyName = state.font.familyName || "HangulGlyphsLab";
       const styleName = state.font.styleName || "Regular";
-      const fontId = safeSvgId(`${familyName}-${styleName}`);
-      const fontFileName = safeDownloadName(`${familyName}-${styleName}`);
+      const internalFamilyName = safeInternalFontName(familyName);
+      const internalPostscriptName = safePostscriptName(familyName, styleName);
+      const fontId = safeAsciiSvgId(internalPostscriptName);
+      const fontFileName = safeDownloadName(`${internalFamilyName}-${styleName}`);
       const glyphs = exportGlyphRecordsWithSpace()
         .filter(item => item.record.char)
         .map(item => {
@@ -3370,10 +3372,13 @@
 
       const svgFont = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg">
+  <metadata>
+    <kolyph-font family-name="${escapeHtml(familyName)}" style-name="${escapeHtml(styleName)}" internal-family-name="${escapeHtml(internalFamilyName)}" postscript-name="${escapeHtml(internalPostscriptName)}" />
+  </metadata>
   <defs>
     <font id="${escapeAttr(fontId)}" horiz-adv-x="1000">
       <font-face
-        font-family="${escapeHtml(familyName)}"
+        font-family="${escapeHtml(internalFamilyName)}"
         font-style="normal"
         units-per-em="1000"
         ascent="880"
@@ -3616,6 +3621,43 @@
 
     function safeSvgId(name) {
       return safeDownloadName(name).replace(/\s+/g, "-");
+    }
+
+    function safeAsciiSvgId(name) {
+      return String(name || "font")
+        .normalize("NFKD")
+        .replace(/[^A-Za-z0-9_.-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        || "font";
+    }
+
+    function safeInternalFontName(name) {
+      const ascii = String(name || "")
+        .normalize("NFKD")
+        .replace(/[^A-Za-z0-9 ._-]+/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      return ascii || `Kolyph ${shortHash(name || "font")}`;
+    }
+
+    function safePostscriptName(familyName, styleName) {
+      const family = String(familyName || "")
+        .normalize("NFKD")
+        .replace(/[^A-Za-z0-9]+/g, "");
+      const style = String(styleName || "Regular")
+        .normalize("NFKD")
+        .replace(/[^A-Za-z0-9]+/g, "") || "Regular";
+      return ((family ? `${family}-${style}` : `Kolyph-${shortHash(`${familyName}-${styleName}`)}-${style}`)).slice(0, 63);
+    }
+
+    function shortHash(value) {
+      let hash = 2166136261;
+      const text = String(value || "");
+      for (let index = 0; index < text.length; index += 1) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+      }
+      return (hash >>> 0).toString(16).padStart(8, "0").slice(0, 8);
     }
 
     function setStatus(message) {

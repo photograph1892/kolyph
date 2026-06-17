@@ -69,7 +69,8 @@
 1. `hangul-glyphs-lab.html`의 `폰트 내보내기` 영역에서 패밀리 이름, 스타일, 출력 형식, 자동 좌우 여백을 선택합니다.
 2. 상단의 `SVG 폰트`를 누르면 `<font>`/`<glyph>` 구조의 SVG Font 파일을 바로 저장할 수 있습니다.
 3. TTF/OTF/WOFF/WOFF2까지 빌드하려면 `SVG 폰트` 파일 또는 상단의 `폰트 빌드 JSON` 파일을 저장합니다.
-   - 패밀리 이름이 한글이어도 다운로드 파일명과 `build_font.py` 출력 파일명에 한글 이름이 유지됩니다.
+   - 변환기 호환성을 위해 실제 폰트 패밀리명, PostScript 이름, SVG Font 파일명은 안전한 영문 내부 이름으로 내보냅니다.
+   - 입력한 한글 패밀리명은 SVG 메타데이터와 프로젝트 데이터에만 보존합니다.
 4. 최초 1회만 폰트 빌드 의존성을 설치합니다.
 
 ```powershell
@@ -82,6 +83,14 @@ python -m pip install -r tools/requirements-font-export.txt
 python tools/build_font.py HangulGlyphsLab-Regular.svg -o dist-font -f ttf otf woff woff2
 python tools/build_font.py HangulGlyphsLab-font-package.json -o dist-font -f ttf otf woff woff2
 ```
+
+이전 버전의 SVG Font 또는 다른 도구에서 한글 패밀리명으로 변환한 TTF/OTF는 OpenType 이름 테이블이 깨졌을 수 있습니다. Adobe에서 임시 이름만 보이거나 검색이 안 되면 변환된 폰트 파일을 아래처럼 한 번 수리하세요.
+
+```powershell
+python tools/repair_font_names.py "바람결따라체-Regular.ttf" --family "바람결따라체" --style Regular
+```
+
+`*_fixed.ttf` 또는 지정한 출력 파일에는 Windows/Adobe용 한글 표시 이름과 안전한 ASCII PostScript 이름이 함께 들어갑니다. 단, 폰트 안에 만들지 않은 글자는 계속 네모로 표시됩니다.
 
 `자동 좌우 여백`을 켜면 내보내기 직전에 각 글리프의 실제 path bbox를 기준으로 왼쪽/오른쪽 여백을 다시 계산합니다. 원본 아트보드 작업은 바꾸지 않고, export용 path와 advance width만 정규화합니다.
 

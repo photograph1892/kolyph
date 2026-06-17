@@ -220,7 +220,6 @@ class FontPackageBuilder:
         )
         fb.setupPost()
         fb.setupCFF(self.ps_name, {"FullName": self.internal_full_name, "FamilyName": self.internal_family}, charstrings, {})
-        self.apply_localized_names(fb.font)
         self.apply_hangul_metadata(fb.font)
         path = out_dir / f"{self.file_stem}.otf"
         fb.save(path)
@@ -255,16 +254,15 @@ class FontPackageBuilder:
             usWinDescent=abs(self.descent),
         )
         fb.setupPost()
-        self.apply_localized_names(fb.font)
         self.apply_hangul_metadata(fb.font)
         return fb.font
 
     def name_table(self):
         return {
-            "familyName": self.family,
-            "styleName": self.style,
-            "uniqueFontIdentifier": f"{self.family}-{self.style}; {self.ps_name}; {self.build_id}",
-            "fullName": f"{self.family} {self.style}",
+            "familyName": self.internal_family,
+            "styleName": ascii_style_name(self.style),
+            "uniqueFontIdentifier": f"{self.internal_full_name}; {self.ps_name}; {self.build_id}",
+            "fullName": self.internal_full_name,
             "psName": self.ps_name,
             "version": "Version 0.001",
         }
@@ -297,25 +295,6 @@ class FontPackageBuilder:
         # Code page bits: 19 Korean Wansung, 21 Korean Johab.
         os2.ulCodePageRange1 = getattr(os2, "ulCodePageRange1", 0) | (1 << 19) | (1 << 21)
         os2.ulCodePageRange2 = getattr(os2, "ulCodePageRange2", 0)
-
-    def apply_localized_names(self, font):
-        name_table = font.get("name")
-        if name_table is None or self.family == self.internal_family:
-            return
-
-        localized_full_name = f"{self.family} {self.style}"
-        localized_unique = f"{self.family}-{self.style}; {self.ps_name}"
-        localized_names = {
-            1: self.family,
-            2: self.style,
-            3: localized_unique,
-            4: localized_full_name,
-            16: self.family,
-            17: self.style,
-        }
-        for name_id, value in localized_names.items():
-            for platform_id, enc_id in ((3, 1), (3, 10)):
-                name_table.setName(value, name_id, platform_id, enc_id, 0x0412)
 
 
 def extract_path_data(markup: str):
