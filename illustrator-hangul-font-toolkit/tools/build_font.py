@@ -9,6 +9,7 @@ It uses fontTools for actual font generation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import re
@@ -159,7 +160,9 @@ class FontPackageBuilder:
         self.baseline = int(self.meta.get("baseline") or self.ascent)
         self.family = clean_name(self.meta.get("familyName") or "HangulGlyphsLab")
         self.style = clean_name(self.meta.get("styleName") or "Regular")
-        self.ps_name = re.sub(r"[^A-Za-z0-9-]", "", f"{self.family}-{self.style}") or "HangulGlyphsLab-Regular"
+        self.ps_name = make_postscript_name(self.family, self.style)
+        self.internal_family = make_internal_family_name(self.family)
+        self.internal_full_name = f"{self.internal_family} {ascii_style_name(self.style)}"
         self.file_stem = safe_filename(f"{self.family}-{self.style}") or self.ps_name
         self.glyph_records = self._glyph_records()
 
@@ -215,7 +218,7 @@ class FontPackageBuilder:
             usWinDescent=abs(self.descent),
         )
         fb.setupPost()
-        fb.setupCFF(self.ps_name, {"FullName": f"{self.family} {self.style}", "FamilyName": self.family}, charstrings, {})
+        fb.setupCFF(self.ps_name, {"FullName": self.internal_full_name, "FamilyName": self.internal_family}, charstrings, {})
         self.apply_hangul_metadata(fb.font)
         path = out_dir / f"{self.file_stem}.otf"
         fb.save(path)
@@ -255,10 +258,10 @@ class FontPackageBuilder:
 
     def name_table(self):
         return {
-            "familyName": self.family,
-            "styleName": self.style,
+            "familyName": self.internal_family,
+            "styleName": ascii_style_name(self.style),
             "uniqueFontIdentifier": self.ps_name,
-            "fullName": f"{self.family} {self.style}",
+            "fullName": self.internal_full_name,
             "psName": self.ps_name,
             "version": "Version 0.001",
         }
@@ -330,6 +333,38 @@ def element_transform(element, baseline):
 
 def clean_name(value):
     return re.sub(r"\s+", " ", str(value)).strip() or "Untitled"
+
+
+def make_postscript_name(family, style):
+    raw = f"{family}-{style}"
+    family_ascii = compact_ascii_name(family)
+    style_ascii = ascii_style_name(style)
+    if family_ascii:
+        ascii_name = f"{family_ascii}-{style_ascii}"
+    else:
+        digest = hashlib.sha1(raw.encode("utf-8")).hexdigest()[:8]
+        ascii_name = f"Kolyph-{digest}-{style_ascii}"
+    return ascii_name[:63]
+
+
+def make_internal_family_name(family):
+    family_ascii = spaced_ascii_name(family)
+    if family_ascii:
+        return family_ascii[:31]
+    digest = hashlib.sha1(clean_name(family).encode("utf-8")).hexdigest()[:8]
+    return f"Kolyph {digest}"
+
+
+def ascii_style_name(style):
+    return compact_ascii_name(style) or "Regular"
+
+
+def compact_ascii_name(value):
+    return re.sub(r"[^A-Za-z0-9]+", "", clean_name(value))
+
+
+def spaced_ascii_name(value):
+    return re.sub(r"[^A-Za-z0-9 ._-]+", "", clean_name(value)).strip()
 
 
 def safe_filename(value):
