@@ -163,6 +163,7 @@ class FontPackageBuilder:
         self.ps_name = make_postscript_name(self.family, self.style)
         self.internal_family = make_internal_family_name(self.family)
         self.internal_full_name = f"{self.internal_family} {ascii_style_name(self.style)}"
+        self.build_id = package_digest(package)
         self.file_stem = safe_filename(f"{self.family}-{self.style}") or self.ps_name
         self.glyph_records = self._glyph_records()
 
@@ -260,10 +261,10 @@ class FontPackageBuilder:
 
     def name_table(self):
         return {
-            "familyName": self.internal_family,
-            "styleName": ascii_style_name(self.style),
-            "uniqueFontIdentifier": self.ps_name,
-            "fullName": self.internal_full_name,
+            "familyName": self.family,
+            "styleName": self.style,
+            "uniqueFontIdentifier": f"{self.family}-{self.style}; {self.ps_name}; {self.build_id}",
+            "fullName": f"{self.family} {self.style}",
             "psName": self.ps_name,
             "version": "Version 0.001",
         }
@@ -354,6 +355,11 @@ def element_transform(element, baseline):
 
 def clean_name(value):
     return re.sub(r"\s+", " ", str(value)).strip() or "Untitled"
+
+
+def package_digest(package):
+    payload = json.dumps(package, ensure_ascii=False, sort_keys=True, default=str)
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:8]
 
 
 def make_postscript_name(family, style):
